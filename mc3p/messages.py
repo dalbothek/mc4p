@@ -613,3 +613,16 @@ srv_msgs[0xca] = defmsg(0xca, "Abilities", [
     ('flying', MC_bool),
     ('allow_flying', MC_bool),
     ('instant_destroy', MC_bool)])
+
+## Version 30 - 12w16a
+
+protocol[30] = tuple(map(list, protocol[29]))
+cli_msgs, srv_msgs = protocol[30]
+
+cli_msgs[0xcb] = \
+srv_msgs[0xcb] = defmsg(0xcb, "Tab completion", [
+    ('text', MC_string)])
+
+cli_msgs[0xcc] = defmsg(0xcc, "Settings", [
+    ('language', MC_string),
+    ('view_distance', MC_int)])
