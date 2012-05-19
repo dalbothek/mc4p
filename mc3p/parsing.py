@@ -56,18 +56,18 @@ def defmsg(msgtype, name, pairs):
                         ''.join([parsem.emit(msg[name]) for (name,parsem) in pairs])])
     return Parsem(parse,emit,name)
 
-def defloginmsg(tuples):
+def defhandshakemsg(tuples):
     """One-off used to define login message.
-       The login message must be parsed before we know which protocol
-       version is in use, but its format differs across protocol versions.
+       The handshake must be parsed before we know which protocol
+       version is in use, but its format may differ across protocol versions.
        We build a Parsem out of (name,min_version,max_version,Parsem) quads.
        We assume the first field of the message is an int containing the
        protocol version. For the remaining fields, min_version and max_version
        (inclusive) define the range of versions in which the field is present.
        """
     def parse(stream):
-        msg = {'msgtype': 0x01}
-        proto_version = parse_int(stream)
+        msg = {'msgtype': 0x02}
+        proto_version = parse_byte(stream)
         msg['proto_version'] = proto_version
         for (name,parsem,min,max) in map(with_defaults, tuples):
             if min <= proto_version <= max:
@@ -77,8 +77,8 @@ def defloginmsg(tuples):
         proto_version = msg['proto_version']
         pairs = ((name,parsem) for (name,parsem,x,y) in map(with_defaults, tuples)
                                if x <= proto_version <= y)
-        return ''.join([emit_unsigned_byte(0x01),
-                        emit_int(msg['proto_version']),
+        return ''.join([emit_unsigned_byte(0x02),
+                        emit_byte(msg['proto_version']),
                         ''.join([parsem.emit(msg[name]) for (name,parsem) in pairs])])
     return Parsem(parse, emit)
 
@@ -388,3 +388,11 @@ def emit_fireball_data(data):
     return str
 
 MC_fireball_data = Parsem(parse_fireball_data, emit_fireball_data)
+
+def parse_blob(stream):
+    return stream.read(parse_short(stream))
+
+def emit_blob(blob):
+    return ''.join([emit_short(len(blob)), blob])
+
+MC_blob = Parsem(parse_blob, emit_blob)

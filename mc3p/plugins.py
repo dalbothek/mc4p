@@ -254,12 +254,11 @@ class PluginManager(object):
                 self.__msgbuf = None
             return self._call_plugins(msg, source)
         else:
-            if 0x01 == msg['msgtype']:
-                if 'client' == source:
-                    self.__proto_version = msg['proto_version']
-                    logger.debug('PluginManager detected proto version %d' %
-                                 self.__proto_version)
-                else:
+            if 0x02 == msg['msgtype']:
+                self.__proto_version = msg['proto_version']
+                logger.debug('PluginManager detected proto version %d' %
+                             self.__proto_version)
+            elif 0x01 == msg['msgtype'] and 'server' == source:
                     logger.info('Handshake completed, loading plugins')
                     self.__session_active = True
                     self._load_plugins()

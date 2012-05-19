@@ -20,14 +20,19 @@ import asyncore, socket, sys, signal, struct, logging.config, re, os.path, inspe
 import traceback, tempfile
 from time import time, sleep
 from optparse import OptionParser
+from getpass import getpass
 
 import messages
 from plugins import PluginConfig, PluginManager
 from parsing import parse_unsigned_byte, parse_int
 from util import Stream, PartialPacketException
+from authentication import Authenticator, minecraft_credentials
 import util
+import encryption
 
 logger = logging.getLogger("mc3p")
+rsa_key = None
+auth = None
 
 def sigint_handler(signum, stack):
     print "Received signal %d, shutting down" % signum
@@ -37,9 +42,8 @@ def sigint_handler(signum, stack):
 def parse_args():
     """Return host and port, or print usage and exit."""
     usage = "usage: %prog [options] host [port]"
-    desc = """
-Create a Minecraft proxy listening for a client connection,
-and forward that connection to <host>:<port>."""
+    desc = ("Create a Minecraft proxy listening for a client connection," +
+            "and forward that connection to <host>:<port>.")
     parser = OptionParser(usage=usage,
                           description=desc)
     parser.add_option("-l", "--log-level", dest="loglvl", metavar="LEVEL",
@@ -47,8 +51,17 @@ and forward that connection to <host>:<port>."""
                       help="Override logging.conf root log level")
     parser.add_option("--log-file", dest='logfile', metavar="FILE", default=None,
                       help="logging configuration file (optional)")
-    parser.add_option("-p", "--local-port", dest="locport", metavar="PORT", default="34343",
-                      type="int", help="Listen on this port")
+    parser.add_option("-p", "--local-port", dest="locport", metavar="PORT",
+                      default="34343", type="int", help="Listen on this port")
+    parser.add_option("-a", "--auto-authenticate", dest="authenticate",
+                      action="store_true", default=False,
+                      help="Authenticate with the credentials stored in the game client")
+    parser.add_option("-u", "--user", dest="user", metavar="USERNAME", default=None,
+                      help="Authenticate with the given username and ask for the password")
+    parser.add_option("-P", "--password-file", dest="password_file",
+                      metavar="FILE", default=None,
+                      help="Authenticate with the credentials stored in FILE" +
+                      "in the form \"username:password\"")
     parser.add_option("--plugin", dest="plugins", metavar="ID:PLUGIN(ARGS)", type="string",
                       action="append", help="Configure a plugin", default=[])
     parser.add_option("--profile", dest="perf_data", metavar="FILE", default=None,
@@ -88,11 +101,18 @@ def wait_for_client(port):
     srvsock.bind( ("", port) )
     srvsock.listen(1)
     logger.info("mitm_listener bound to %d" % port)
+    if rsa_key is None:
+        generate_rsa_key_pair()
     (sock, addr) = srvsock.accept()
     srvsock.close()
     logger.info("mitm_listener accepted connection from %s" % repr(addr))
     return sock
 
+
+def generate_rsa_key_pair():
+    global rsa_key
+    logger.debug('Generating RSA key pair')
+    rsa_key = encryption.generate_key_pair()
 
 class MinecraftSession(object):
     """A client-server Minecraft session."""
@@ -135,13 +155,19 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
         asyncore.dispatcher_with_send.__init__(self, src_sock)
         self.plugin_mgr = None
         self.other_side = other_side
+        self.rsa_key = None
+        self.shared_secret = None
+        self.send_cipher = None
+        self.recv_cipher = None
         if other_side == None:
             self.side = 'client'
             self.msg_spec = messages.protocol[0][0]
+            self.rsa_key = rsa_key
         else:
             self.side = 'server'
             self.msg_spec = messages.protocol[0][1]
             self.other_side.other_side = self
+            self.shared_secret = encryption.generate_shared_secret()
         self.stream = Stream()
         self.last_report = 0
         self.msg_queue = []
@@ -168,7 +194,8 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
         try:
             packet = parse_packet(self.stream, self.msg_spec, self.side)
             while packet != None:
-                if packet['msgtype'] == 0x01 and self.side == 'client':
+                rebuild = False
+                if packet['msgtype'] == 0x02 and self.side == 'client':
                     # Determine which protocol message definitions to use.
                     proto_version = packet['proto_version']
                     logger.info('Client requests protocol version %d' % proto_version)
@@ -177,13 +204,53 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
                         self.handle_close()
                         return
                     self.msg_spec, self.other_side.msg_spec = messages.protocol[proto_version]
+                    self.cipher = encryption.encryption_for_version(proto_version)
+                    self.other_side.cipher = self.cipher
+                elif packet['msgtype'] == 0xfd:
+                    self.rsa_key = encryption.decode_public_key(
+                        packet['public_key']
+                    )
+                    self.encoded_rsa_key = packet['public_key']
+                    packet['public_key'] = encryption.encode_public_key(
+                        self.other_side.rsa_key
+                    )
+                    self.other_side.server_id = packet['server_id']
+                    packet['server_id'] = "-"
+                    rebuild = True
+                elif packet['msgtype'] == 0xfc and self.side == 'client':
+                    self.shared_secret = encryption.decrypt_shared_secret(
+                        packet['shared_secret'],
+                        self.rsa_key
+                    )
+                    if (len(self.shared_secret) > 16 and
+                        self.cipher == encryption.RC4):
+                        logger.error("Unsupported protocol version")
+                        self.handle_close()
+                        return
+                    packet['shared_secret'] = encryption.encrypt_shared_secret(
+                        self.other_side.shared_secret, 
+                        self.other_side.rsa_key
+                    )
+                    if auth:
+                        logger.info("Authenticating on server")
+                        auth.join_server(self.server_id,
+                                        self.other_side.shared_secret,
+                                        self.other_side.rsa_key)
+                    rebuild = True
+                elif packet['msgtype'] == 0xfc and self.side == 'server':
+                    logger.debug("Starting encryption")
+                    self.start_cipher()
                 forward = True
                 if self.plugin_mgr:
                     forwarding = self.plugin_mgr.filter(packet, self.side)
                     if forwarding and packet.modified:
-                        packet['raw_bytes'] = self.msg_spec[packet['msgtype']].parse(packet)
+                        rebuild = True
+                if rebuild:
+                    packet['raw_bytes'] = self.msg_spec[packet['msgtype']].emit(packet)
                 if forwarding and self.other_side:
                     self.other_side.send(packet['raw_bytes'])
+                if packet['msgtype'] == 0xfc and self.side == 'server':
+                    self.other_side.start_cipher()
                 # Since we know we're at a message boundary, we can inject
                 # any messages in the queue.
                 msgbytes = self.plugin_mgr.next_injected_msg_from(self.side)
@@ -214,6 +281,20 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
             logger.info("shutting down plugin manager")
             self.plugin_mgr.destroy()
 
+    def start_cipher(self):
+        self.recv_cipher = self.cipher(self.shared_secret)
+        self.send_cipher = self.cipher(self.shared_secret)
+
+    def recv(self, buffer_size):
+        data = asyncore.dispatcher_with_send.recv(self, buffer_size)
+        if self.recv_cipher is None:
+            return data
+        return self.recv_cipher.decrypt(data)
+
+    def send(self, data):
+        if self.send_cipher is not None:
+            data = self.send_cipher.encrypt(data)
+        return asyncore.dispatcher_with_send.send(self, data)
 
 class Message(dict):
     def __init__(self, d):
@@ -247,6 +328,43 @@ if __name__ == "__main__":
 
     if opts.loglvl:
         logging.root.setLevel(getattr(logging, opts.loglvl.upper()))
+
+    if opts.user:
+        while True:
+            password = getpass("Minecraft account password: ")
+            auth = Authenticator(opts.user, password)
+            logger.debug("Authenticating with %s" % opts.user)
+            if auth.check():
+                break
+            logger.error("Authentication failed")
+        logger.debug("Credentials are valid")
+
+    if opts.authenticate or opts.password_file:
+        if opts.authenticate:
+            credentials = minecraft_credentials()
+            if credentials is None:
+                logger.error("Can't find password file. " +
+                             "Use --user or --password-file option instead.")
+                sys.exit(1)
+            user, password = credentials
+        else:
+            try:
+                with open(opts.password_file) as f:
+                    credentials = f.read().strip()
+            except IOError as e:
+                logger.error("Can't read password file: %s" % e)
+                sys.exit(1)
+            if ':' not in credentials:
+                logger.error("Invalid password file")
+                sys.exit(1)
+            user = credentials[:credentials.find(':')]
+            password = credentials[len(user)+1:]
+        auth = Authenticator(user, password)
+        logger.debug("Authenticating with %s" % user)
+        if not auth.check():
+            logger.error("Authentication failed")
+            sys.exit(1)
+        logger.debug("Credentials are valid")
 
     # Install signal handler.
     signal.signal(signal.SIGINT, sigint_handler)

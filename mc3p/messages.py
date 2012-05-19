@@ -24,21 +24,10 @@ protocol = {}
 protocol[0] = [None] * 256, [None] * 256
 cli_msgs, srv_msgs = protocol[0]
 
-cli_msgs[0x01] = defloginmsg([
-    ('username', MC_string),
-    ('nu1', MC_long, 0, 23),
-    ('nu7', MC_string, 23),
-    ('nu2', MC_int),
-    ('nu3', MC_byte, 0, 23),
-    ('nu8', MC_int, 28),
-    ('nu4', MC_byte),
-    ('nu5', MC_unsigned_byte),
-    ('nu6', MC_unsigned_byte)])
-
-cli_msgs[0x02] = defmsg(0x02,"Handshake",[
-    ('username',MC_string)])
-srv_msgs[0x02] = defmsg(0x02, "Handshake", [
-    ('hash',MC_string)])
+cli_msgs[0x02] = defhandshakemsg([
+    ('username',MC_string),
+    ('host',MC_string),
+    ('port',MC_int)])
 
 cli_msgs[0xfe] = defmsg(0xfe, "Server List Ping", [])
 
@@ -46,24 +35,25 @@ cli_msgs[0xff] = \
 srv_msgs[0xff] = defmsg(0xff, "Disconnect/Kick", [
     ('reason', MC_string)])
 
-### VERSION 17 - Corresponds to Beta 1.8
+### VERSION 32 - Corresponds to 12w18a
 
-protocol[17] = tuple(map(list, protocol[0]))
-cli_msgs, srv_msgs = protocol[17]
-
-srv_msgs[0x01] = defmsg(0x01, "Login packet", [
-    ('eid',MC_int),
-    ('reserved',MC_string),
-    ('map_seed',MC_long),
-    ('server_mode', MC_int),
-    ('dimension', MC_byte),
-    ('difficulty', MC_byte),
-    ('world_height', MC_unsigned_byte),
-    ('max_players', MC_unsigned_byte)])
+protocol[32] = tuple(map(list, protocol[0]))
+cli_msgs, srv_msgs = protocol[32]
 
 cli_msgs[0x00] = \
 srv_msgs[0x00] = defmsg(0x00,"Keep Alive",[
     ('id', MC_int)])
+
+cli_msgs[0x01] = defmsg(0x01, "Login packet", [])
+
+srv_msgs[0x01] = defmsg(0x01, "Login packet", [
+    ('eid', MC_int),
+    ('level_type', MC_string),
+    ('server_mode', MC_byte),
+    ('dimension', MC_byte),
+    ('difficulty', MC_byte),
+    ('unused', MC_unsigned_byte),
+    ('max_players', MC_unsigned_byte)])
 
 cli_msgs[0x03] = \
 srv_msgs[0x03] = defmsg(0x03, "Chat",[
@@ -94,13 +84,13 @@ srv_msgs[0x08] = defmsg(0x08, "Update health", [
     ('food', MC_short),
     ('food_saturation', MC_float)])
 
-cli_msgs[0x09] = \
+cli_msgs[0x09] = defmsg(0x09, "Respawn", [])
 srv_msgs[0x09] = defmsg(0x09, "Respawn", [
     ('world', MC_byte),
     ('difficulty', MC_byte),
     ('mode', MC_byte),
     ('world_height', MC_short),
-    ('map_seed', MC_long)])
+    ('level_type', MC_string)])
 
 cli_msgs[0x0a] = defmsg(0x0a, "Player state", [
     ('on_ground',MC_bool)])
@@ -150,7 +140,7 @@ srv_msgs[0x0f] = defmsg(0x0f, "Block placement", [
     ('y',MC_byte),
     ('z',MC_int),
     ('dir',MC_byte),
-    ('details',MC_slot_update)])
+    ('details',MC_slot_update2)])
 
 cli_msgs[0x10] = \
 srv_msgs[0x10] = defmsg(0x10, "Held item selection",[
@@ -216,6 +206,7 @@ srv_msgs[0x18] = defmsg(0x18, "Mob spawn", [
     ('z',MC_int),
     ('yaw',MC_byte),
     ('pitch',MC_byte),
+    ('head_yaw',MC_byte),
     ('metadata',MC_metadata)])
 
 srv_msgs[0x19] = defmsg(0x19, "Painting", [
@@ -232,15 +223,6 @@ srv_msgs[0x1a] = defmsg(0x1a, "Experience orb", [
     ('y', MC_int),
     ('z', MC_int),
     ('count', MC_short)])
-
-cli_msgs[0x1b] = \
-srv_msgs[0x1b] = defmsg(0x1b, "???", [
-    ('d1', MC_float),
-    ('d2', MC_float),
-    ('d3', MC_float),
-    ('d4', MC_float),
-    ('d5', MC_bool),
-    ('d6', MC_bool)])
 
 cli_msgs[0x1c] = \
 srv_msgs[0x1c] = defmsg(0x1c, "Entity velocity", [
@@ -282,6 +264,10 @@ srv_msgs[0x22] = defmsg(0x22, "Entity teleport", [
     ('yaw', MC_byte),
     ('pitch', MC_byte)])
 
+srv_msgs[0x23] = defmsg(0x23, "Entity head look", [
+    ('eid',MC_int),
+    ('head_yaw',MC_byte)])
+
 srv_msgs[0x26] = defmsg(0x26, "Entity status", [
     ('eid',MC_int),
     ('status',MC_byte)])
@@ -309,8 +295,8 @@ srv_msgs[0x2a] = defmsg(0x2a, "Remove entity effect", [
     ('effect_id', MC_byte)])
 
 srv_msgs[0x2b] = defmsg(0x2b, "Experience", [
-    ('curr_exp', MC_byte),
-    ('level', MC_byte),
+    ('curr_exp', MC_float),
+    ('level', MC_short),
     ('tot_exp', MC_short)])
 
 srv_msgs[0x32] = defmsg(0x32, "Pre-chunk", [
@@ -320,18 +306,17 @@ srv_msgs[0x32] = defmsg(0x32, "Pre-chunk", [
 
 srv_msgs[0x33] = defmsg(0x33, "Chunk", [
     ('x',MC_int),
-    ('y',MC_short),
     ('z',MC_int),
-    ('size_x',MC_byte),
-    ('size_y',MC_byte),
-    ('size_z',MC_byte),
-    ('chunk',MC_chunk)])
+    ('continuous',MC_bool),
+    ('chunk_bitmap',MC_short),
+    ('add_bitmap',MC_short),
+    ('chunk',MC_chunk2)])
 
-cli_msgs[0x34] = \
 srv_msgs[0x34] = defmsg(0x34, "Multi-block change", [
     ('chunk_x',MC_int),
     ('chunk_z',MC_int),
-    ('changes',MC_multi_block_change)])
+    ('block_count',MC_short),
+    ('changes',MC_multi_block_change2)])
 
 cli_msgs[0x35] = \
 srv_msgs[0x35] = defmsg(0x35, "Block change", [
@@ -362,6 +347,14 @@ srv_msgs[0x3d] = defmsg(0x3d, "Sound effect", [
     ('z', MC_int),
     ('data', MC_int)])
 
+srv_msgs[0x3e] = defmsg(0x3e, "Named Sound Effect", [
+    ('sound_name', MC_string),
+    ('x', MC_int),
+    ('y', MC_int),
+    ('z', MC_int),
+    ('volume', MC_byte),
+    ('pitch', MC_byte)])
+
 cli_msgs[0x46] = \
 srv_msgs[0x46] = defmsg(0x46, "New/Invalid State", [
     ('reason', MC_byte),
@@ -383,86 +376,7 @@ srv_msgs[0x64] = defmsg(0x64, "Open window", [
 cli_msgs[0x65] = \
 srv_msgs[0x65] = defmsg(0x65, "Close window", [
     ('window_id', MC_byte)])
-
-cli_msgs[0x66] = defmsg(0x66, "Window click", [
-    ('window_id', MC_byte),
-    ('slot', MC_short),
-    ('is_right_click', MC_bool),
-    ('action_num', MC_short),
-    ('shift', MC_bool),
-    ('details', MC_slot_update)])
-
-srv_msgs[0x67] = defmsg(0x67, "Set slot", [
-    ('window_id',MC_byte),
-    ('slot',MC_short),
-    ('slot_update',MC_slot_update)])
-
-srv_msgs[0x68] = defmsg(0x68, "Window items", [
-    ('window_id',MC_byte),
-    ('inventory',MC_inventory)])
-
-srv_msgs[0x69] = defmsg(0x69, "Update progress bar", [
-    ('window_id', MC_byte),
-    ('progress_bar',MC_short),
-    ('value',MC_short)])
-
-cli_msgs[0x6a] = \
-srv_msgs[0x6a] = defmsg(0x6a, "Transaction", [
-    ('window_id', MC_byte),
-    ('action_num', MC_short),
-    ('accepted', MC_bool)])
-
-cli_msgs[0x6b] = \
-srv_msgs[0x6b] = defmsg(0x6b, "Creative inventory action", [
-    ('slot', MC_short),
-    ('item_id', MC_short),
-    ('quantity', MC_short),
-    ('damage', MC_short)])
-
-cli_msgs[0x82] = \
-srv_msgs[0x82] = defmsg(0x82, "Update sign", [
-    ('x', MC_int),
-    ('y', MC_short),
-    ('z', MC_int),
-    ('text1', MC_string),
-    ('text2', MC_string),
-    ('text3', MC_string),
-    ('text4', MC_string)])
-
-cli_msgs[0x83] = \
-srv_msgs[0x83] = defmsg(0x83, "Item data", [
-    ('item_type', MC_short),
-    ('item_id', MC_short),
-    ('data', MC_item_data)])
-
-srv_msgs[0xc8] = defmsg(0xc8, "Increment statistic", [
-    ('stat_id', MC_int),
-    ('amount', MC_byte)])
-
-srv_msgs[0xc9] = defmsg(0xc9, "Player list item", [
-    ('name', MC_string),
-    ('online', MC_bool),
-    ('ping', MC_short)])
-
-### Version 18 - Beta 1.9pre1 (UNTESTED)
-protocol[18] = tuple(map(list, protocol[17]))
-cli_msgs, srv_msgs = protocol[18]
-
-# According to http://mc.kev009.com/Pre-release_protocol, there were no
-# message format changes in this release.
-
-### Version 19 - Beta 1.9pre2 (UNTESTED)
-protocol[19] = tuple(map(list, protocol[18]))
-cli_msgs, srv_msgs = protocol[19]
-
-cli_msgs[0x0f] = \
-srv_msgs[0x0f] = defmsg(0x0f, "Block placement", [
-    ('x',MC_int),
-    ('y',MC_byte),
-    ('z',MC_int),
-    ('dir',MC_byte),
-    ('details',MC_slot_update2)])
-
+    
 cli_msgs[0x66] = defmsg(0x66, "Window click", [
     ('window_id', MC_byte),
     ('slot', MC_short),
@@ -480,118 +394,41 @@ srv_msgs[0x68] = defmsg(0x68, "Window items", [
     ('window_id',MC_byte),
     ('inventory',MC_inventory2)])
 
-### Version 20 - Beta 1.9pre4
-protocol[20] = tuple(map(list, protocol[19]))
-cli_msgs, srv_msgs = protocol[20]
-
-srv_msgs[0x2b] = defmsg(0x2b, "Experience", [
-    ('curr_exp', MC_float),
-    ('level', MC_short),
-    ('tot_exp', MC_short)])
-
-cli_msgs[0x6c] = defmsg(0x6c, "Enchant Item", [
+srv_msgs[0x69] = defmsg(0x69, "Update progress bar", [
     ('window_id', MC_byte),
-    ('enchantment', MC_byte)])
+    ('progress_bar',MC_short),
+    ('value',MC_short)])
 
-### Version 21 - Beta 1.9pre5.
-
-protocol[21] = tuple(map(list, protocol[20]))
-cli_msgs, srv_msgs = protocol[21]
+cli_msgs[0x6a] = \
+srv_msgs[0x6a] = defmsg(0x6a, "Transaction", [
+    ('window_id', MC_byte),
+    ('action_num', MC_short),
+    ('accepted', MC_bool)])
 
 cli_msgs[0x6b] = \
 srv_msgs[0x6b] = defmsg(0x6b, "Creative inventory action", [
     ('slot', MC_short),
     ('details', MC_slot_update2)])
 
-### Version 22 - Beta 1.9pre6 (no changes)
+cli_msgs[0x6c] = defmsg(0x6c, "Enchant Item", [
+    ('window_id', MC_byte),
+    ('enchantment', MC_byte)])
 
-protocol[22] = tuple(map(list, protocol[21]))
-cli_msgs, srv_msgs = protocol[22]
+cli_msgs[0x82] = \
+srv_msgs[0x82] = defmsg(0x82, "Update sign", [
+    ('x', MC_int),
+    ('y', MC_short),
+    ('z', MC_int),
+    ('text1', MC_string),
+    ('text2', MC_string),
+    ('text3', MC_string),
+    ('text4', MC_string)])
 
-## Version 23 - 1.1
-
-protocol[23] = tuple(map(list, protocol[22]))
-cli_msgs, srv_msgs = protocol[23]
-
-srv_msgs[0x01] = defmsg(0x01, "Login packet", [
-    ('eid',MC_int),
-    ('reserved',MC_string),
-    ('map_seed',MC_long),
-    ('level_type', MC_string),
-    ('server_mode', MC_int),
-    ('dimension', MC_byte),
-    ('difficulty', MC_byte),
-    ('world_height', MC_unsigned_byte),
-    ('max_players', MC_unsigned_byte)])
-
-cli_msgs[0xfa] = \
-srv_msgs[0xfa] = defmsg(0xfa, "Plugin message", [
-    ('channel', MC_string),
-    ('data', MC_string8)])
-
-cli_msgs[0x09] = \
-srv_msgs[0x09] = defmsg(0x09, "Respawn", [
-    ('world', MC_byte),
-    ('difficulty', MC_byte),
-    ('mode', MC_byte),
-    ('world_height', MC_short),
-    ('map_seed', MC_long),
-    ('level_type', MC_string)])
-
-cli_msgs[0x1b] = \
-srv_msgs[0x1b] = None
-
-## Version 28 - 1.2
-
-protocol[28] = tuple(map(list, protocol[23]))
-cli_msgs, srv_msgs = protocol[28]
-
-srv_msgs[0x01] = defmsg(0x01, "Login packet", [
-    ('eid', MC_int),
-    ('reserved', MC_string),
-    ('level_type', MC_string),
-    ('server_mode', MC_int),
-    ('dimension', MC_int),
-    ('difficulty', MC_byte),
-    ('world_height', MC_unsigned_byte),
-    ('max_players', MC_unsigned_byte)])
-
-cli_msgs[0x09] = \
-srv_msgs[0x09] = defmsg(0x09, "Respawn", [
-    ('world', MC_byte),
-    ('difficulty', MC_byte),
-    ('mode', MC_byte),
-    ('world_height', MC_short),
-    ('level_type', MC_string)])
-
-srv_msgs[0x18] = defmsg(0x18, "Mob spawn", [
-    ('eid',MC_int),
-    ('mob_type',MC_byte),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('yaw',MC_byte),
-    ('pitch',MC_byte),
-    ('head_yaw',MC_byte),
-    ('metadata',MC_metadata)])
-
-srv_msgs[0x23] = defmsg(0x23, "Entity head look", [
-    ('eid',MC_int),
-    ('head_yaw',MC_byte)])
-
-srv_msgs[0x33] = defmsg(0x33, "Chunk", [
-    ('x',MC_int),
-    ('z',MC_int),
-    ('continuous',MC_bool),
-    ('chunk_bitmap',MC_short),
-    ('add_bitmap',MC_short),
-    ('chunk',MC_chunk2)])
-
-srv_msgs[0x34] = defmsg(0x34, "Multi-block change", [
-    ('chunk_x',MC_int),
-    ('chunk_z',MC_int),
-    ('block_count',MC_short),
-    ('changes',MC_multi_block_change2)])
+cli_msgs[0x83] = \
+srv_msgs[0x83] = defmsg(0x83, "Item data", [
+    ('item_type', MC_short),
+    ('item_id', MC_short),
+    ('data', MC_item_data)])
 
 srv_msgs[0x84] = defmsg(0x84, "Update tile entity", [
     ('x',MC_int),
@@ -602,27 +439,41 @@ srv_msgs[0x84] = defmsg(0x84, "Update tile entity", [
     ('custom2',MC_int),
     ('custom3',MC_int)])
 
-## Version 29 - 1.2.4
+srv_msgs[0xc8] = defmsg(0xc8, "Increment statistic", [
+    ('stat_id', MC_int),
+    ('amount', MC_byte)])
 
-protocol[29] = tuple(map(list, protocol[28]))
-cli_msgs, srv_msgs = protocol[29]
+srv_msgs[0xc9] = defmsg(0xc9, "Player list item", [
+    ('name', MC_string),
+    ('online', MC_bool),
+    ('ping', MC_short)])
 
 cli_msgs[0xca] = \
 srv_msgs[0xca] = defmsg(0xca, "Abilities", [
-    ('invulnerable', MC_bool),
-    ('flying', MC_bool),
-    ('allow_flying', MC_bool),
-    ('instant_destroy', MC_bool)])
-
-## Version 30 - 12w16a
-
-protocol[30] = tuple(map(list, protocol[29]))
-cli_msgs, srv_msgs = protocol[30]
+    ('abilities', MC_byte),
+    ('wlaking_speed', MC_byte),
+    ('flying_speed', MC_byte)])
 
 cli_msgs[0xcb] = \
 srv_msgs[0xcb] = defmsg(0xcb, "Tab completion", [
     ('text', MC_string)])
 
 cli_msgs[0xcc] = defmsg(0xcc, "Settings", [
-    ('language', MC_string),
-    ('view_distance', MC_int)])
+    ('locale', MC_string),
+    ('view_distance', MC_byte),
+    ('chat_flags', MC_byte),
+    ('unknown', MC_byte)])
+
+cli_msgs[0xfa] = \
+srv_msgs[0xfa] = defmsg(0xfa, "Plugin message", [
+    ('channel', MC_string),
+    ('data', MC_string8)])
+
+cli_msgs[0xfc] = \
+srv_msgs[0xfc] = defmsg(0xfc, "Encryption Key Response", [
+    ('shared_secret', MC_blob)])
+
+srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
+    ('server_id', MC_string),
+    ('public_key', MC_blob)])
+
