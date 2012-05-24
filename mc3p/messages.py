@@ -477,3 +477,7 @@ srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
     ('server_id', MC_string),
     ('public_key', MC_blob)])
 
+
+### VERSION 33 - Corresponds to 12w21a
+
+protocol[33] = tuple(map(list, protocol[32]))

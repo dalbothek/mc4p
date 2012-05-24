@@ -41,7 +41,6 @@ class Authenticator(object):
         return self._get_session_id() is not None
 
     def join_server(self, server_id, shared_secret, public_key):
-        print self._get_session()[3]
         r = requests.get(self.SESSION_URL,
                           params={'user': self.player_name(),
                                   'sessionId': self._get_session_id(),
@@ -56,7 +55,7 @@ class Authenticator(object):
 
     def _get_session(self):
         """Authenticates a player"""
-        if self._session is None or self._login_time < time() - 60:
+        if self._session is None or self._login_time < time() - 50:
             r = requests.post(self.LOGIN_URL,
                               data={'user': self.user,
                                     'password': self.password,
