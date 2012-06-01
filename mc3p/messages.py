@@ -481,3 +481,19 @@ srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
 ### VERSION 33 - Corresponds to 12w21a
 
 protocol[33] = tuple(map(list, protocol[32]))
+
+
+### VERSION 34 - Corresponds to 12w22a
+
+protocol[34] = tuple(map(list, protocol[33]))
+cli_msgs, srv_msgs = protocol[34]
+
+cli_msgs[0x0f] = defmsg(0x0f, "Block placement", [
+    ('x',MC_int),
+    ('y',MC_byte),
+    ('z',MC_int),
+    ('dir',MC_byte),
+    ('details',MC_slot_update2),
+    ('block_x', MC_byte),
+    ('block_y', MC_byte),
+    ('block_z', MC_byte)])
