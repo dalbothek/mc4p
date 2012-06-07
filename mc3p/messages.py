@@ -376,7 +376,7 @@ srv_msgs[0x64] = defmsg(0x64, "Open window", [
 cli_msgs[0x65] = \
 srv_msgs[0x65] = defmsg(0x65, "Close window", [
     ('window_id', MC_byte)])
-    
+
 cli_msgs[0x66] = defmsg(0x66, "Window click", [
     ('window_id', MC_byte),
     ('slot', MC_short),
@@ -497,3 +497,21 @@ cli_msgs[0x0f] = defmsg(0x0f, "Block placement", [
     ('block_x', MC_byte),
     ('block_y', MC_byte),
     ('block_z', MC_byte)])
+
+
+### VERSION 35 - Corresponds to 12w23a
+
+protocol[35] = tuple(map(list, protocol[34]))
+cli_msgs, srv_msgs = protocol[35]
+
+srv_msgs[0x05] = defmsg(0x05, "Entity Equipment",[
+    ('eid',MC_int),
+    ('slot',MC_short),
+    ('item',MC_slot_update2)])
+
+srv_msgs[0x37] = defmsg(0x37, "Block Mining",[
+    ('eid',MC_int),
+    ('x',MC_int),
+    ('y',MC_int),
+    ('z',MC_int),
+    ('status',MC_byte)])
