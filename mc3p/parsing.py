@@ -284,6 +284,43 @@ def emit_inventory2(inv):
 
 MC_inventory2 = Parsem(parse_inventory2,emit_inventory2)
 
+def parse_slot_update3(stream):
+    r = parse_slot_update(stream)
+    if r is not None and r['item_id']:
+        n = parse_short(stream)
+        r['nbt_size'] = n
+        if n > 0:
+            r['nbt_data'] = stream.read(n)
+        else:
+            r['nbt_data'] = None
+    return r
+
+def emit_slot_update3(update):
+    if not update:
+        return emit_short(-1)
+    s = emit_slot_update(update)
+    if update['item_id']:
+        size = update['nbt_size']
+        s = ''.join(s, emit_short(size))
+        if size >= 0:
+            data = update['nbt_data']
+        s = ''.join([s, nbtdata])
+    return s
+
+MC_slot_update3 = Parsem(parse_slot_update3, emit_slot_update3)
+
+def parse_inventory3(stream):
+    n = parse_short(stream)
+    inv = { "count": n }
+    inv["slots"] = [parse_slot_update3(stream) for i in xrange(0,n)]
+    return inv
+
+def emit_inventory3(inv):
+    slotstr = ''.join([emit_slot_update3(slot) for slot in inv['slots']])
+    return ''.join([emit_short(inv['count']),slotstr])
+
+MC_inventory3 = Parsem(parse_inventory3,emit_inventory3)
+
 def parse_chunk(stream):
     n = parse_int(stream)
     return { 'size': n, 'data': stream.read(n) }

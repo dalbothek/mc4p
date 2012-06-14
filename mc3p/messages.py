@@ -515,3 +515,60 @@ srv_msgs[0x37] = defmsg(0x37, "Block Mining",[
     ('y',MC_int),
     ('z',MC_int),
     ('status',MC_byte)])
+
+
+### VERSION 36 - Corresponds to 12w24a
+
+protocol[36] = tuple(map(list, protocol[35]))
+cli_msgs, srv_msgs = protocol[36]
+
+srv_msgs[0x05] = defmsg(0x05, "Entity Equipment",[
+    ('eid',MC_int),
+    ('slot',MC_short),
+    ('item',MC_slot_update3)])
+
+cli_msgs[0x0f] = defmsg(0x0f, "Block placement", [
+    ('x',MC_int),
+    ('y',MC_byte),
+    ('z',MC_int),
+    ('dir',MC_byte),
+    ('details',MC_slot_update3),
+    ('block_x', MC_byte),
+    ('block_y', MC_byte),
+    ('block_z', MC_byte)])
+
+srv_msgs[0x3c] = defmsg(0x3c, "Explosion", [
+    ('x', MC_double),
+    ('y', MC_double),
+    ('z', MC_double),
+    ('unknown', MC_float),
+    ('records', MC_explosion_records),
+    ('unknown1', MC_float),
+    ('unknown2', MC_float),
+    ('unknown3', MC_float)])
+
+cli_msgs[0x66] = defmsg(0x66, "Window click", [
+    ('window_id', MC_byte),
+    ('slot', MC_short),
+    ('is_right_click', MC_bool),
+    ('action_num', MC_short),
+    ('shift', MC_bool),
+    ('details', MC_slot_update3)])
+
+srv_msgs[0x67] = defmsg(0x67, "Set slot", [
+    ('window_id',MC_byte),
+    ('slot',MC_short),
+    ('slot_update',MC_slot_update3)])
+
+srv_msgs[0x68] = defmsg(0x68, "Window items", [
+    ('window_id',MC_byte),
+    ('inventory',MC_inventory3)])
+
+cli_msgs[0x6b] = \
+srv_msgs[0x6b] = defmsg(0x6b, "Creative inventory action", [
+    ('slot', MC_short),
+    ('details', MC_slot_update3)])
+
+cli_msgs[0xcd] = \
+srv_msgs[0xcd] = defmsg(0xcd, "Respawn", [
+    ('dimension', MC_byte)])
