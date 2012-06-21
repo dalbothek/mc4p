@@ -572,3 +572,27 @@ srv_msgs[0x6b] = defmsg(0x6b, "Creative inventory action", [
 cli_msgs[0xcd] = \
 srv_msgs[0xcd] = defmsg(0xcd, "Respawn", [
     ('dimension', MC_byte)])
+
+
+### VERSION 37 - Corresponds to 12w25a
+
+protocol[37] = tuple(map(list, protocol[36]))
+cli_msgs, srv_msgs = protocol[37]
+
+srv_msgs[0x3e] = defmsg(0x3e, "Named Sound Effect", [
+    ('sound_name', MC_string),
+    ('x', MC_int),
+    ('y', MC_int),
+    ('z', MC_int),
+    ('volume', MC_float),
+    ('pitch', MC_byte)])
+
+cli_msgs[0xfc] = \
+srv_msgs[0xfc] = defmsg(0xfc, "Encryption Key Response", [
+    ('shared_secret', MC_blob),
+    ('check_bytes', MC_blob)])
+
+srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
+    ('server_id', MC_string),
+    ('public_key', MC_blob),
+    ('check_bytes', MC_blob)])

@@ -44,8 +44,8 @@ class Authenticator(object):
         r = requests.get(self.SESSION_URL,
                           params={'user': self.player_name(),
                                   'sessionId': self._get_session_id(),
-                                  'serverId': self._login_hash(server_id, 
-                                                               shared_secret, 
+                                  'serverId': self._login_hash(server_id,
+                                                               shared_secret,
                                                                public_key)})
 
     def player_name(self):
@@ -99,9 +99,9 @@ def minecraft_credentials():
 
 def _minecraft_folder():
     """Finds the folder minecraft stores the account credentials in.
-    
+
     Copyright (c) 2010 David Rio Vierra
-    
+
     Permission to use, copy, modify, and/or distribute this software for any
     purpose with or without fee is hereby granted, provided that the above
     copyright notice and this permission notice appear in all copies.
@@ -112,7 +112,6 @@ def _minecraft_folder():
             objShell = win32com.client.Dispatch("WScript.Shell")
             appDataDir = objShell.SpecialFolders("AppData")
         except Exception, e:
-            return None
             try:
                 from win32com.shell import shell, shellcon
                 appDataDir = shell.SHGetPathFromIDListEx(

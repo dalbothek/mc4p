@@ -157,6 +157,7 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
         self.other_side = other_side
         self.rsa_key = None
         self.shared_secret = None
+        self.check_bytes = None
         self.send_cipher = None
         self.recv_cipher = None
         if other_side == None:
@@ -214,6 +215,8 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
                     packet['public_key'] = encryption.encode_public_key(
                         self.other_side.rsa_key
                     )
+                    if 'check_bytes' in packet:
+                        self.check_bytes = packet['check_bytes']
                     self.other_side.server_id = packet['server_id']
                     packet['server_id'] = "-"
                     rebuild = True
@@ -228,9 +231,14 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
                         self.handle_close()
                         return
                     packet['shared_secret'] = encryption.encrypt_shared_secret(
-                        self.other_side.shared_secret, 
+                        self.other_side.shared_secret,
                         self.other_side.rsa_key
                     )
+                    if 'check_bytes' in packet:
+                        packet['check_bytes'] = encryption.encrypt_shared_secret(
+                            self.other_side.check_bytes,
+                            self.other_side.rsa_key
+                        )
                     if auth:
                         logger.info("Authenticating on server")
                         auth.join_server(self.server_id,
