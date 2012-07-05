@@ -433,3 +433,31 @@ def emit_blob(blob):
     return ''.join([emit_short(len(blob)), blob])
 
 MC_blob = Parsem(parse_blob, emit_blob)
+
+def parse_entity_list(stream):
+    return [parse_int(stream) for i in range(parse_byte(stream))]
+
+def emit_entity_list(entities):
+    return emit_byte(len(entities)) + ''.join(emit_int(entity) for entity in entities)
+
+MC_entity_list = Parsem(parse_entity_list, emit_entity_list)
+
+def parse_chunks(stream):
+    size = parse_short(stream)
+    data = stream.read(parse_int(stream))
+    positions = [{'u1': parse_int(stream),
+                  'u2': parse_int(stream),
+                  'u3': parse_short(stream),
+                  'u4': parse_short(stream)} for i in range(size)]
+    return {'data': data, 'positions': positions}
+
+def emit_chunks(chunks):
+    return ''.join(emit_short(len(chunks['positions'])),
+                   emit_int(len(chunks['data'])),
+                   unknown['data'],
+                   ''.join(''.join(emit_int(pos['u1']),
+                                   emit_int(pos['u2']),
+                                   emit_short(pos['u3']),
+                                   emit_short(pos['u4'])) for pos in chunks['positions']))
+
+MC_chunks = Parsem(parse_chunks, emit_chunks)

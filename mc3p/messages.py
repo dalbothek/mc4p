@@ -596,3 +596,45 @@ srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
     ('server_id', MC_string),
     ('public_key', MC_blob),
     ('check_bytes', MC_blob)])
+
+
+### VERSION 38 - Corresponds to 12w27a
+
+protocol[38] = tuple(map(list, protocol[37]))
+cli_msgs, srv_msgs = protocol[38]
+
+srv_msgs[0x18] = defmsg(0x18, "Mob spawn", [
+    ('eid',MC_int),
+    ('mob_type',MC_byte),
+    ('x',MC_int),
+    ('y',MC_int),
+    ('z',MC_int),
+    ('yaw',MC_byte),
+    ('pitch',MC_byte),
+    ('head_yaw',MC_byte),
+    ('u1',MC_short),
+    ('u2',MC_short),
+    ('u3',MC_short),
+    ('metadata',MC_metadata)])
+
+srv_msgs[0x1d] = defmsg(0x1d, "Destroy entity", [
+    ('entities',MC_entity_list)])
+
+srv_msgs[0x33] = defmsg(0x33, "Chunk", [
+    ('x',MC_int),
+    ('z',MC_int),
+    ('continuous',MC_bool),
+    ('chunk_bitmap',MC_short),
+    ('add_bitmap',MC_short),
+    ('chunk',MC_chunk)])
+
+srv_msgs[0x36] = defmsg(0x36, "Block Action",[
+    ('x', MC_int),
+    ('y', MC_short),
+    ('z', MC_int),
+    ('instrument_type', MC_byte),
+    ('pitch', MC_byte),
+    ('type', MC_short)])
+
+srv_msgs[0x38] = defmsg(0x38, "Chunks",[
+    ('unknown', MC_chunks)])
