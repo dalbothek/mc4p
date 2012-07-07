@@ -94,20 +94,27 @@ def parse_args():
     return (host, port, opts, pcfg)
 
 
-def wait_for_client(port):
-    """Listen on port for client connection, return resulting socket."""
-    srvsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srvsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srvsock.bind( ("", port) )
-    srvsock.listen(1)
-    logger.info("mitm_listener bound to %d" % port)
-    if rsa_key is None:
-        generate_rsa_key_pair()
-    (sock, addr) = srvsock.accept()
-    srvsock.close()
-    logger.info("mitm_listener accepted connection from %s" % repr(addr))
-    return sock
+class ServerDispatcher(asyncore.dispatcher):
+    def __init__(self, locport, pcfg, host, port):
+        asyncore.dispatcher.__init__(self)
+        self.pcfg = pcfg
+        self.target_host = host
+        self.target_port = port
 
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.set_reuse_addr()
+        self.bind(("", locport))
+        self.listen(5)
+        logger.info("ServerDispatcher bound to %d" % port)
+        if rsa_key is None:
+            generate_rsa_key_pair()
+
+    def handle_accept(self):
+        pair = self.accept()
+        if pair:
+            sock, addr = pair
+            logger.info('Incoming connection from %s' % repr(addr))
+            MinecraftSession(pcfg, sock, self.target_host, self.target_port)
 
 def generate_rsa_key_pair():
     global rsa_key
@@ -377,18 +384,13 @@ if __name__ == "__main__":
     # Install signal handler.
     signal.signal(signal.SIGINT, sigint_handler)
 
-    while True:
-        cli_sock = wait_for_client(opts.locport)
+    server = ServerDispatcher(opts.locport, pcfg, host, port)
 
-        # Set up client/server main-in-the-middle.
-        sleep(0.05)
-        MinecraftSession(pcfg, cli_sock, host, port)
-
-        # I/O event loop.
-        if opts.perf_data:
-            logger.warn("Profiling enabled, saving data to %s" % opts.perf_data)
-            import cProfile
-            cProfile.run('asyncore.loop()', opts.perf_data)
-        else:
-            asyncore.loop()
+    # I/O event loop.
+    if opts.perf_data:
+        logger.warn("Profiling enabled, saving data to %s" % opts.perf_data)
+        import cProfile
+        cProfile.run('asyncore.loop()', opts.perf_data)
+    else:
+        asyncore.loop()
 
