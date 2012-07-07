@@ -86,7 +86,7 @@ srv_msgs[0x08] = defmsg(0x08, "Update health", [
 
 cli_msgs[0x09] = defmsg(0x09, "Respawn", [])
 srv_msgs[0x09] = defmsg(0x09, "Respawn", [
-    ('world', MC_byte),
+    ('world', MC_int),
     ('difficulty', MC_byte),
     ('mode', MC_byte),
     ('world_height', MC_short),
