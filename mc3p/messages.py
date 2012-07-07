@@ -636,5 +636,5 @@ srv_msgs[0x36] = defmsg(0x36, "Block Action",[
     ('pitch', MC_byte),
     ('type', MC_short)])
 
-srv_msgs[0x38] = defmsg(0x38, "Chunks",[
-    ('unknown', MC_chunks)])
+srv_msgs[0x38] = defmsg(0x38, "Chunk Bulk",[
+    ('chunks', MC_chunks)])

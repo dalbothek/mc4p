@@ -264,10 +264,10 @@ def emit_slot_update2(update):
     s = emit_slot_update(update)
     if update['item_id'] in SLOT_UPDATE_2_ITEM_IDS:
         size = update['nbt_size']
-        s = ''.join(s, emit_short(size))
+        s = ''.join((s, emit_short(size)))
         if size >= 0:
-            data = update['nbt_data']
-        s = ''.join([s, nbtdata])
+            nbtdata = update['nbt_data']
+            s = ''.join((s, nbtdata))
     return s
 
 MC_slot_update2 = Parsem(parse_slot_update2, emit_slot_update2)
@@ -301,10 +301,10 @@ def emit_slot_update3(update):
     s = emit_slot_update(update)
     if update['item_id']:
         size = update['nbt_size']
-        s = ''.join(s, emit_short(size))
+        s = ''.join((s, emit_short(size)))
         if size >= 0:
-            data = update['nbt_data']
-        s = ''.join([s, nbtdata])
+            nbtdata = update['nbt_data']
+            s = ''.join((s, nbtdata))
     return s
 
 MC_slot_update3 = Parsem(parse_slot_update3, emit_slot_update3)
@@ -445,19 +445,19 @@ MC_entity_list = Parsem(parse_entity_list, emit_entity_list)
 def parse_chunks(stream):
     size = parse_short(stream)
     data = stream.read(parse_int(stream))
-    positions = [{'u1': parse_int(stream),
-                  'u2': parse_int(stream),
-                  'u3': parse_short(stream),
-                  'u4': parse_short(stream)} for i in range(size)]
-    return {'data': data, 'positions': positions}
+    metadata = [{'x': parse_int(stream),
+                  'y': parse_int(stream),
+                  'bitmap': parse_short(stream),
+                  'add_bitmap': parse_short(stream)} for i in range(size)]
+    return {'data': data, 'metadata': metadata}
 
 def emit_chunks(chunks):
-    return ''.join(emit_short(len(chunks['positions'])),
-                   emit_int(len(chunks['data'])),
-                   unknown['data'],
-                   ''.join(''.join(emit_int(pos['u1']),
-                                   emit_int(pos['u2']),
-                                   emit_short(pos['u3']),
-                                   emit_short(pos['u4'])) for pos in chunks['positions']))
+    return ''.join((emit_short(len(chunks['metadata'])),
+                    emit_int(len(chunks['data'])),
+                    chunks['data'],
+                    ''.join(''.join((emit_int(md['x']),
+                                     emit_int(md['y']),
+                                     emit_short(md['bitmap']),
+                                     emit_short(md['add_bitmap']))) for md in chunks['metadata'])))
 
 MC_chunks = Parsem(parse_chunks, emit_chunks)
