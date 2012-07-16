@@ -28,6 +28,11 @@ def generate_key_pair():
     return RSA.generate(1024)
 
 
+def generate_challenge_token():
+    """Generates 4 random bytes"""
+    return Random.get_random_bytes(4)
+
+
 def generate_shared_secret():
     """Generates a 128 bit secret key to be used in symmetric encryption"""
     return Random.get_random_bytes(16)
