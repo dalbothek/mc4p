@@ -40,7 +40,7 @@ else:
     t = Terminal()
     is_terminal = t.is_a_tty
     if is_terminal:
-        output_width = t.width
+        output_width = max(t.width, output_width)
 
 
 def parse_args():
@@ -132,16 +132,21 @@ class LoggingSocketCipherStream(LoggingSocketStream):
             )
 
 class PacketFormatter(object):
+    IGNORE = ('msgtype', 'raw_bytes')
+
     @classmethod
     def print_packet(cls, packet):
         formatter = "_format_packet_%02x" % packet['msgtype']
         substitutes = {}
+        lengths = [len(field) for field in packet if field not in cls.IGNORE]
+        if not lengths:
+            return
+        maxlen = max(lengths)
         if hasattr(cls, formatter):
-            substitutes = getattr(cls, formatter)(packet)
+            substitutes = getattr(cls, formatter)(packet, maxlen+4)
         print t.bold("Packet content:")
-        maxlen = max(len(field) for field in packet)
         for field in packet:
-            if field in ('msgtype', 'raw_bytes'):
+            if field in cls.IGNORE:
                 continue
             if field in substitutes:
                 value = substitutes[field]
@@ -158,43 +163,76 @@ class PacketFormatter(object):
         prefix_length = len(prefix)
         if prefix_format is not None:
             prefix = prefix_format(prefix)
-        return cls._multi_line(cls._bytes(bytes, prefix, prefix_length), 0)
+        return cls._multi_line(cls._bytes(bytes, prefix, 0, prefix_length), 0)
 
     @classmethod
-    def _format_packet_fd(cls, packet):
+    def _format_packet_fd(cls, packet, prelen):
         key = encryption.decode_public_key(packet['public_key'])
-        modulus = cls._split_lines("%x" % key.key.n, 64, "modulus:  0x")
+        modulus = cls._split_lines("%x" % key.key.n, "modulus:  0x", prelen)
         token = ' '.join("%02x" % ord(c) for c in packet['challenge_token'])
-        raw = cls._bytes(packet['public_key'], "raw:      ")
+        raw = cls._bytes(packet['public_key'], "raw:      ", prelen)
         return {'challenge_token': token,
                 'public_key': ["exponent: 0x%x" % key.key.e] + modulus + raw}
 
     @classmethod
-    def _format_packet_38(cls, packet):
-        data = cls._bytes(packet['chunks']['data'], "data: ")
-        meta = cls._table(packet['chunks']['metadata'], "meta: ")
+    def _format_packet_38(cls, packet, prelen):
+        data = cls._bytes(packet['chunks']['data'], "data: ", prelen)
+        meta = cls._table(packet['chunks']['metadata'], "meta: ", prelen)
         return {'chunks': data + meta}
 
     @classmethod
-    def _format_packet_fc(cls, packet):
-        token = cls._bytes(packet['challenge_token'])
-        secret = cls._bytes(packet['shared_secret'])
+    def _format_packet_fc(cls, packet, prelen):
+        token = cls._bytes(packet['challenge_token'], prelen=prelen)
+        secret = cls._bytes(packet['shared_secret'], prelen=prelen)
         return {'challenge_token': token,
                 'shared_secret': secret}
 
     @staticmethod
-    def _table(items, prefix):
-        return [prefix + 'Not implemented yet']
+    def _table(items, prefix, prelen=0):
+        if not items:
+            return [prefix + "Empty"]
+        titles = items[0].keys()
+        maxlen = [len(title) for title in titles]
+        for i in range(len(titles)):
+            title = titles[i]
+            for item in items:
+                if len(str(item[title])) > maxlen[i]:
+                    maxlen[i] = len(str(item[title]))
+
+        def row(values, title=False):
+            if title:
+                line = prefix
+            else:
+                line = " "*len(prefix)
+            for i in range(len(values)):
+                value = values[i]
+                l = maxlen[i]
+                if isinstance(value, str):
+                    line += value + " "*(l - len(value) + 1)
+                else:
+                    line += " "*(l - len(str(value))) + str(value) + " "
+            return line
+
+        def separator():
+            return " "*len(prefix) + "-".join("-"*l for l in maxlen)
+
+        lines = [row(titles, title=True), separator()]
+        for item in items:
+            lines.append(row([item[title] for title in titles]))
+        return lines
 
     @classmethod
-    def _bytes(cls, bytes, prefix="", prefix_length=None):
+    def _bytes(cls, bytes, prefix="", prelen=0, prefix_length=None):
         return cls._split_lines(" ".join("%02x" % ord(c) for c in bytes),
-                                48, prefix, prefix_length)
+                                prefix=prefix, prelen=prelen,
+                                prefix_length=prefix_length, partlen=3)
 
     @staticmethod
-    def _split_lines(text, length, prefix="", prefix_length=None):
+    def _split_lines(text, prefix="", prelen=0, prefix_length=None, partlen=1):
         lines = []
         prefix_length = prefix_length or len(prefix)
+        length = output_width - prelen - prefix_length
+        length = length - length % partlen
         for i in range(0, len(text), length):
             line = prefix if i == 0 else " "*prefix_length
             line += text[i:min(i + length, len(text))]
@@ -336,8 +374,7 @@ class Server(object):
                                          'max_players': 20}, srv_cipher)
 
             if self.send_chunks:
-                send_packet(sock, srv_spec, self.multi_chunk_packet(),
-                            srv_cipher)
+                send_packet(sock, srv_spec, multi_chunk_packet(), srv_cipher)
 
                 send_packet(sock, srv_spec, {'msgtype': 0x06,
                                              'x': 0,
@@ -357,22 +394,6 @@ class Server(object):
                         {'msgtype': 0xff,
                          'reason': "Successfully logged in"},
                         srv_cipher)
-
-    @staticmethod
-    def multi_chunk_packet(radius=4):
-        blocks = '\x01'*16*16 + '\x00'*15*16*16
-        meta = '\x00'*16*16*8
-        light = '\xff'*16*16*16
-        biome = '\x01'*16*16
-        chunk = blocks + meta + light + biome
-        d = 1+2*radius
-        data = compress(chunk*(d**2))
-        meta = [{'x': i/d - radius,
-                'y': i%d - radius,
-                'bitmap': 1,
-                'add_bitmap': 0} for i in range(d**2)]
-        return {'msgtype': 0x38,
-                'chunks': {'data': data, 'metadata': meta}}
 
 
 def parse_packet(sock, msg_spec, expecting=None,
@@ -421,6 +442,22 @@ def send_packet(sock, msg_spec, msg, cipher=None):
         print ''.join("%02x " % ord(c) for c in msgbytes)
     PacketFormatter.print_packet(msg)
     sock.sendall(msgbytes)
+
+
+def multi_chunk_packet(radius=2):
+    blocks = '\x01'*16*16 + '\x00'*15*16*16
+    meta = '\x00'*16*16*8
+    light = '\xff'*16*16*16
+    biome = '\x01'*16*16
+    chunk = blocks + meta + light + biome
+    d = 1+2*radius
+    data = compress(chunk*(d**2))
+    meta = [{'x': i/d - radius,
+            'z': i%d - radius,
+            'bitmap': 1,
+            'add_bitmap': 0} for i in range(d**2)]
+    return {'msgtype': 0x38,
+            'chunks': {'data': data, 'metadata': meta}}
 
 
 class UnexpectedPacketException(Exception):
