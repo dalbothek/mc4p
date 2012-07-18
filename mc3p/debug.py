@@ -11,11 +11,13 @@ import sys
 from struct import pack, unpack
 from optparse import OptionParser
 from contextlib import closing
-from zlib import compress
+from random import choice
+from zlib import compress, decompress
 
 import encryption
 from messages import protocol
 from parsing import parse_unsigned_byte
+from authentication import Authenticator
 from proxy import UnsupportedPacketException
 
 
@@ -52,10 +54,13 @@ def parse_args():
                       action="store_true", default=False,
                       help="send some more packets after the encrypted " +
                            "connection was established")
-    (opts,args) = parser.parse_args()
+    parser.add_option("-s", "--stay-connected", dest="stay_connected",
+                      action="store_true", default=False,
+                      help="don't disconnect after a successfull handshake")
+    (opts, args) = parser.parse_args()
 
     if not 0 <= len(args) <= 1:
-        parser.error("Incorrect number of arguments.") # Calls sys.exit()
+        parser.error("Incorrect number of arguments.")
 
     port = 25565
     if len(args) > 0:
@@ -70,6 +75,8 @@ def parse_args():
 class LoggingSocketStream(object):
     def __init__(self, sock):
         self.sock = sock
+
+    def __enter__(self):
         sys.stdout.write(t.bold("Receiving raw bytes: "))
 
     def read(self, length):
@@ -86,7 +93,7 @@ class LoggingSocketStream(object):
         sys.stdout.write("%02x " % ord(byte))
         return byte
 
-    def packet_finished(self):
+    def __exit__(self, exception_type, exception_value, traceback):
         sys.stdout.write("\n")
 
 
@@ -96,6 +103,8 @@ class LoggingSocketCipherStream(LoggingSocketStream):
         self.cipher = cipher
         self.data = []
         self.pos = 21
+
+    def __enter__(self):
         if is_terminal:
             sys.stdout.write(t.bold("Receiving raw bytes: ") + t.move_down)
             sys.stdout.write(t.bold("Decrypted bytes:     ") + t.move_up)
@@ -116,20 +125,21 @@ class LoggingSocketCipherStream(LoggingSocketStream):
             raise e
         decrypted = self.cipher.decrypt(byte)
         if is_terminal:
-            sys.stdout.write(''.join((t.move_down, t.move_right*self.pos,
+            sys.stdout.write(''.join((t.move_down, t.move_right * self.pos,
                                       "%02x " % ord(decrypted), t.move_up)))
         self.pos += 3
         return decrypted
 
-    def packet_finished(self):
+    def __exit__(self, exception_type, exception_value, traceback):
         if is_terminal:
-            sys.stdout.write(t.move_down*2)
+            sys.stdout.write(t.move_down * 2)
         else:
             sys.stdout.write("\n")
             sys.stdout.write("Decrypted bytes:     ")
             print "  ".join(
                 " ".join("%02x" % ord(c) for c in field) for field in self.data
             )
+
 
 class PacketFormatter(object):
     IGNORE = ('msgtype', 'raw_bytes')
@@ -143,7 +153,7 @@ class PacketFormatter(object):
             return
         maxlen = max(lengths)
         if hasattr(cls, formatter):
-            substitutes = getattr(cls, formatter)(packet, maxlen+4)
+            substitutes = getattr(cls, formatter)(packet, maxlen + 4)
         print t.bold("Packet content:")
         for field in packet:
             if field in cls.IGNORE:
@@ -153,10 +163,10 @@ class PacketFormatter(object):
                 if value is None:
                     continue
                 if isinstance(value, tuple) or isinstance(value, list):
-                    value = cls._multi_line(value, maxlen+4)
+                    value = cls._multi_line(value, maxlen + 4)
             else:
                 value = packet[field]
-            print "  %s:%s %s" % (field, " "*(maxlen-len(field)), value)
+            print "  %s:%s %s" % (field, " " * (maxlen - len(field)), value)
 
     @classmethod
     def bytes(cls, bytes, prefix="", prefix_format=None):
@@ -203,18 +213,18 @@ class PacketFormatter(object):
             if title:
                 line = prefix
             else:
-                line = " "*len(prefix)
+                line = " " * len(prefix)
             for i in range(len(values)):
                 value = values[i]
                 l = maxlen[i]
                 if isinstance(value, str):
-                    line += value + " "*(l - len(value) + 1)
+                    line += value + " " * (l - len(value) + 1)
                 else:
-                    line += " "*(l - len(str(value))) + str(value) + " "
+                    line += " " * (l - len(str(value))) + str(value) + " "
             return line
 
         def separator():
-            return " "*len(prefix) + "-".join("-"*l for l in maxlen)
+            return " " * len(prefix) + "-".join("-" * l for l in maxlen)
 
         lines = [row(titles, title=True), separator()]
         for item in items:
@@ -234,20 +244,21 @@ class PacketFormatter(object):
         length = output_width - prelen - prefix_length
         length = length - length % partlen
         for i in range(0, len(text), length):
-            line = prefix if i == 0 else " "*prefix_length
+            line = prefix if i == 0 else " " * prefix_length
             line += text[i:min(i + length, len(text))]
             lines.append(line)
         return lines
 
     @staticmethod
     def _multi_line(lines, offset):
-        return ("\n" + " "*offset).join(lines)
+        return ("\n" + " " * offset).join(lines)
 
 
 class Server(object):
-    def __init__(self, port, send_chunks):
+    def __init__(self, port, send_chunks=False, stay_connected=False):
         self.port = port
         self.send_chunks = send_chunks
+        self.stay_connected = stay_connected
 
     def start(self):
         with closing(socket.socket(socket.AF_INET,
@@ -291,14 +302,17 @@ class Server(object):
                 print t.bold_red("Error:"),
                 print "Unsupported protocol version"
                 return
+            username = packet['username']
             clt_spec, srv_spec = protocol[packet['proto_version']]
 
             print t.bold("\nGenerating RSA key pair")
             key = encryption.generate_key_pair()
             challenge = encryption.generate_challenge_token()
+            server_id = encryption.generate_random_bytes(10)
+            server_id = "".join("%02x" % ord(c) for c in server_id)
 
             packet = {'msgtype': 0xfd,
-                      'server_id': '-',
+                      'server_id': server_id,
                       'public_key': encryption.encode_public_key(key),
                       'challenge_token': challenge}
             send_packet(sock, srv_spec, packet)
@@ -353,6 +367,18 @@ class Server(object):
                 print "(received length is %s)" % len(secret)
                 return
 
+            print t.bold_cyan("\nAuthentication")
+            print PacketFormatter.bytes(server_id, "Server ID:     ", t.bold)
+            print PacketFormatter.bytes(secret, "Shared secret: ", t.bold)
+            print PacketFormatter.bytes(encryption.encode_public_key(key),
+                                        "Public key:    ", t.bold)
+            print t.bold("Login hash:   "),
+            print Authenticator.login_hash(server_id, secret, key)
+            if Authenticator.check_player(username, server_id, secret, key):
+                print t.bold_green("Success:"), "You are authenticated"
+            else:
+                print t.bold_yellow("Warning:"), "You are not authenticated"
+
             send_packet(sock, srv_spec, {'msgtype': 0xfc,
                                          'challenge_token': '',
                                          'shared_secret': ''})
@@ -366,61 +392,113 @@ class Server(object):
 
             send_packet(sock, srv_spec, {'msgtype': 0x01,
                                          'eid': 1337,
-                                         'level_type': 'default',
+                                         'level_type': 'flat',
                                          'server_mode': 0,
-                                         'dimension': 1,
+                                         'dimension': 0,
                                          'difficulty': 2,
                                          'unused': 0,
                                          'max_players': 20}, srv_cipher)
 
             if self.send_chunks:
-                send_packet(sock, srv_spec, multi_chunk_packet(), srv_cipher)
+                while True:
+                    print
+                    packet = parse_packet(sock, clt_spec, cipher=clt_cipher)
+                    if packet['msgtype'] == 0x0d:
+                        break
+
+                x, y, z = 5, 9, 5
 
                 send_packet(sock, srv_spec, {'msgtype': 0x06,
-                                             'x': 0,
-                                             'y': 3,
-                                             'z': 0}, srv_cipher)
+                                             'x': x,
+                                             'y': y,
+                                             'z': z}, srv_cipher)
+
+                send_packet(sock, srv_spec, {'msgtype': 0xca,
+                                             'abilities': 0b0100,
+                                             'walking_speed': 25,
+                                             'flying_speed': 12}, srv_cipher)
+
+                send_packet(sock, srv_spec, {'msgtype': 0x04,
+                                             'time': 0}, srv_cipher)
+
+                send_packet(sock, srv_spec, multi_chunk_packet(), srv_cipher)
 
                 send_packet(sock, srv_spec, {'msgtype': 0x0d,
-                                             'x': 0,
-                                             'y': 3,
-                                             'stance': 4.5,
-                                             'z': 0,
+                                             'x': x,
+                                             'y': y,
+                                             'stance': y + 1.5,
+                                             'z': z,
                                              'yaw': 0,
                                              'pitch': 0,
                                              'on_ground': False}, srv_cipher)
 
-            send_packet(sock, srv_spec,
-                        {'msgtype': 0xff,
-                         'reason': "Successfully logged in"},
-                        srv_cipher)
+                buffer = StringSocket()
+
+                send_packet(buffer, srv_spec,
+                            {'msgtype': 0x03,
+                             'chat_msg': 'First message'},
+                            srv_cipher)
+
+                send_packet(buffer, srv_spec,
+                            {'msgtype': 0x03,
+                             'chat_msg': 'Second message'}, srv_cipher)
+
+                sock.sendall(buffer.data)
+
+            if self.stay_connected:
+                while True:
+                    packet = parse_packet(sock, clt_spec, cipher=clt_cipher,
+                                          title=True)
+                    if packet['msgtype'] == 0xff:
+                        break
+                    elif packet['msgtype'] == 0x00:
+                        send_packet(buffer, srv_spec, {'msgtype': 0x00,
+                                                       'id': 0}, srv_cipher)
+                        break
+            else:
+                send_packet(sock, srv_spec,
+                            {'msgtype': 0xff,
+                             'reason': "Successfully logged in"}, srv_cipher)
 
 
 def parse_packet(sock, msg_spec, expecting=None,
-                 cipher=None, backup_cipher=None):
+                 cipher=None, backup_cipher=None, title=False):
     if expecting is not None:
         packet = msg_spec[expecting]
         print t.bold_cyan("\nExpecting %s (0x%02x) packet" % (packet.name,
                                                               expecting))
+    if title and is_terminal:
+        sys.stdout.write(t.move_down * 2)
+    elif title:
+        print
+
     if cipher is None:
         stream = LoggingSocketStream(sock)
     else:
         stream = LoggingSocketCipherStream(sock, cipher)
-    msgtype = parse_unsigned_byte(stream)
-    if expecting is not None and msgtype != expecting:
-        stream.packet_finished()
-        if backup_cipher is None:
-            raise UnexpectedPacketException(msgtype)
+    with stream:
+        msgtype = parse_unsigned_byte(stream)
+        if expecting is not None and msgtype != expecting:
+            stream.packet_finished()
+            if backup_cipher is None:
+                raise UnexpectedPacketException(msgtype)
+            else:
+                raise UnexpectedPacketException(
+                    msgtype, ord(backup_cipher.encrypt(chr(expecting)))
+                )
+        if not msg_spec[msgtype]:
+            raise UnsupportedPacketException(msgtype)
+        msg_parser = msg_spec[msgtype]
+        msg = msg_parser.parse(stream)
+    if title:
+        if is_terminal:
+            sys.stdout.write(t.move_up * 3)
+        sys.stdout.write(t.bold_cyan("Received %s (0x%02x) packet" %
+                                     (msg_parser.name,  msgtype)))
+        if is_terminal:
+            sys.stdout.write(t.move_down * 3)
         else:
-            raise UnexpectedPacketException(
-                msgtype, ord(backup_cipher.encrypt(chr(expecting)))
-            )
-    if not msg_spec[msgtype]:
-        stream.packet_finished()
-        raise UnsupportedPacketException(msgtype)
-    msg_parser = msg_spec[msgtype]
-    msg = msg_parser.parse(stream)
-    stream.packet_finished()
+            print
     PacketFormatter.print_packet(msg)
     if backup_cipher is not None:
         backup_cipher.encrypt(msg_parser.emit(msg))
@@ -444,20 +522,36 @@ def send_packet(sock, msg_spec, msg, cipher=None):
     sock.sendall(msgbytes)
 
 
-def multi_chunk_packet(radius=2):
-    blocks = '\x01'*16*16 + '\x00'*15*16*16
-    meta = '\x00'*16*16*8
-    light = '\xff'*16*16*16
-    biome = '\x01'*16*16
-    chunk = blocks + meta + light + biome
-    d = 1+2*radius
-    data = compress(chunk*(d**2))
-    meta = [{'x': i/d - radius,
-            'z': i%d - radius,
+def multi_chunk_packet(radius=4):
+    d = 1 + 2 * radius
+    data = compress("".join(random_chunk() for i in range(d ** 2)))
+    meta = [{'x': i / d - radius,
+            'z': i % d - radius,
             'bitmap': 1,
-            'add_bitmap': 0} for i in range(d**2)]
+            'add_bitmap': 0} for i in range(d ** 2)]
     return {'msgtype': 0x38,
             'chunks': {'data': data, 'metadata': meta}}
+
+
+def random_chunk():
+    block_ids = [chr(x) for x in range(1, 6)]
+    blocks = "".join(choice(block_ids) for i in range(16 * 16 * 8))
+    blocks += '\x00' * 8 * 16 * 16
+    meta = '\x00' * 16 * 16 * 8
+    light = '\x00' * 12 * 16 * 16 + '\xff' * 4 * 16 * 16
+    biome = '\x01' * 16 * 16
+    return blocks + meta + light + biome
+
+
+def flat_chunk():
+    blocks = '\x07' * 16 * 16
+    blocks += '\x03' * 2 * 16 * 16
+    blocks += '\x02' * 16 * 16
+    blocks += '\x00' * 12 * 16 * 16
+    meta = '\x00' * 16 * 16 * 8
+    light = '\x00' * 10 * 16 * 16 + '\xff' * 6 * 16 * 16
+    biome = '\x01' * 16 * 16
+    return blocks + meta + light + biome
 
 
 class UnexpectedPacketException(Exception):
@@ -470,10 +564,21 @@ class EOFException(Exception):
     pass
 
 
+class StringSocket(object):
+    def __init__(self):
+        self.data = ""
+
+    def send(self, data):
+        self.data += data
+
+    def sendall(self, data):
+        self.send(data)
+
+
 if __name__ == "__main__":
     (port, opts) = parse_args()
 
     try:
-        Server(port, opts.send_chunks).start()
+        Server(port, opts.send_chunks, opts.stay_connected).start()
     except KeyboardInterrupt:
         pass

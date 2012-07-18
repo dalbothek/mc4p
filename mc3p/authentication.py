@@ -19,6 +19,7 @@ from encryption import encode_public_key, PBEWithMD5AndDES
 class Authenticator(object):
     LOGIN_URL = 'https://login.minecraft.net'
     SESSION_URL = 'http://session.minecraft.net/game/joinserver.jsp'
+    CHECK_SESSION_URL = 'http://session.minecraft.net/game/checkserver.jsp'
     VERSION = 1337
 
     def __init__(self, username, password):
@@ -35,9 +36,9 @@ class Authenticator(object):
         r = requests.get(self.SESSION_URL,
                           params={'user': self.player_name(),
                                   'sessionId': self._get_session_id(),
-                                  'serverId': self._login_hash(server_id,
-                                                               shared_secret,
-                                                               public_key)})
+                                  'serverId': self.login_hash(server_id,
+                                                              shared_secret,
+                                                              public_key)})
 
     def player_name(self):
         if self._get_session() is None:
@@ -61,7 +62,21 @@ class Authenticator(object):
             return None
         return self._get_session()[3].strip()
 
-    def _login_hash(self, server_id, shared_secret, public_key):
+    @classmethod
+    def check_player(cls, username, server_id, shared_secret, public_key):
+        """Checks if a user is allowed to join the server."""
+        return cls._check_player(username, cls.login_hash(server_id,
+                                                          shared_secret,
+                                                          public_key))
+
+    @classmethod
+    def _check_player(cls, username, session_hash):
+        r = requests.get(cls.CHECK_SESSION_URL,
+                         params={'user': username, 'serverId': session_hash})
+        return r.ok and r.content.strip() == "YES"
+
+    @staticmethod
+    def login_hash(server_id, shared_secret, public_key):
         """Returns the server id which is then used for joining a server"""
         digest = sha1()
         digest.update(server_id)

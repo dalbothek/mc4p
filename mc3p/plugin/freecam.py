@@ -55,6 +55,8 @@ class FreecamPlugin(MC3Plugin):
 
     @msghdlr(0xca)
     def handle_abilities(self, msg, source):
+        if self.freecam and source == 'client':
+            return False
         self.abilities = msg
         return True
 
@@ -73,7 +75,6 @@ class FreecamPlugin(MC3Plugin):
                 self.send_chat("No saved position")
             return False
         elif txt.startswith('/freecam'):
-            
             if self.freecam and not self.safe:
                 self.send_chat("Please use '/freecam back' to go back "
                     "to a safe position")
@@ -84,12 +85,13 @@ class FreecamPlugin(MC3Plugin):
             if self.abilities:
                 if self.freecam:
                     new_abilities = self.abilities.copy()
-                    new_abilities['allow_flying'] = True
+                    new_abilities['abilities'] = 0b0100
+                    new_abilities['flying_speed'] = 50
                     self.to_client(new_abilities)
                 else:
                     # restore old ones
                     self.to_client(self.abilities)
-            
+
             self.send_chat("Freecam mode is now [%s]" %
                 ('ON' if self.freecam else 'OFF'))
 
