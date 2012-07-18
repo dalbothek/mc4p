@@ -451,8 +451,8 @@ srv_msgs[0xc9] = defmsg(0xc9, "Player list item", [
 cli_msgs[0xca] = \
 srv_msgs[0xca] = defmsg(0xca, "Abilities", [
     ('abilities', MC_byte),
-    ('wlaking_speed', MC_byte),
-    ('flying_speed', MC_byte)])
+    ('flying_speed', MC_byte),
+    ('walking_speed', MC_byte)])
 
 cli_msgs[0xcb] = \
 srv_msgs[0xcb] = defmsg(0xcb, "Tab completion", [
@@ -571,7 +571,7 @@ srv_msgs[0x6b] = defmsg(0x6b, "Creative inventory action", [
 
 cli_msgs[0xcd] = \
 srv_msgs[0xcd] = defmsg(0xcd, "Respawn", [
-    ('dimension', MC_byte)])
+    ('payload', MC_byte)])
 
 
 ### VERSION 37 - Corresponds to 12w25a
@@ -590,12 +590,12 @@ srv_msgs[0x3e] = defmsg(0x3e, "Named Sound Effect", [
 cli_msgs[0xfc] = \
 srv_msgs[0xfc] = defmsg(0xfc, "Encryption Key Response", [
     ('shared_secret', MC_blob),
-    ('check_bytes', MC_blob)])
+    ('challenge_token', MC_blob)])
 
 srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
     ('server_id', MC_string),
     ('public_key', MC_blob),
-    ('check_bytes', MC_blob)])
+    ('challenge_token', MC_blob)])
 
 
 ### VERSION 38 - Corresponds to 12w27a

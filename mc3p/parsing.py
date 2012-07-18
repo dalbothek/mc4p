@@ -446,7 +446,7 @@ def parse_chunks(stream):
     size = parse_short(stream)
     data = stream.read(parse_int(stream))
     metadata = [{'x': parse_int(stream),
-                  'y': parse_int(stream),
+                  'z': parse_int(stream),
                   'bitmap': parse_short(stream),
                   'add_bitmap': parse_short(stream)} for i in range(size)]
     return {'data': data, 'metadata': metadata}
@@ -456,7 +456,7 @@ def emit_chunks(chunks):
                     emit_int(len(chunks['data'])),
                     chunks['data'],
                     ''.join(''.join((emit_int(md['x']),
-                                     emit_int(md['y']),
+                                     emit_int(md['z']),
                                      emit_short(md['bitmap']),
                                      emit_short(md['add_bitmap']))) for md in chunks['metadata'])))
 
