@@ -276,7 +276,7 @@ class MsgHandlerWrapper(object):
         self.msgtypes = msgtypes
         self.method = method
 
-    def __call__(*args, **kargs):
+    def __call__(self, *args, **kargs):
         self.method(*args, **kargs)
 
 
