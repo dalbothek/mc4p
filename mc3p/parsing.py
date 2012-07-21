@@ -191,7 +191,6 @@ def parse_metadata(stream):
             data.append(parse_byte(stream))
             data.append(parse_short(stream))
         else:
-            logger.error(repr(stream.buf[:parse.i]))
             raise Exception("Unknown metadata type %d" % type)
         type = parse_byte(stream)
     return data
