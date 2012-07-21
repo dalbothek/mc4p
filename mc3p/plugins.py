@@ -15,21 +15,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import re
-import asyncore
-import os
-import socket
-import logging
-import traceback
-import imp
-import inspect
-import multiprocessing
 import Queue
+import logging
 import messages
+import multiprocessing
 import traceback
-
-from util import Stream, PartialPacketException
-from parsing import *
 
 ### Globals ###
 
