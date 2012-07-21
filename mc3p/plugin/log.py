@@ -19,7 +19,7 @@
 # Message logging plugin, by fredreichbier
 
 
-from mc3p.plugins import MC3Plugin, msghdlr
+from mc3p.plugins import MC3Plugin
 from mc3p.messages import cli_msgs, srv_msgs
 
 IGNORE = ['mgstype']
