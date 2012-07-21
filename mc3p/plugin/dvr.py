@@ -43,7 +43,7 @@ if __name__ == "__main__":
     mc3p_dir = os.path.dirname(os.path.abspath(os.path.join(__file__,'..')))
     sys.path.append(mc3p_dir)
 
-from mc3p.plugins import PluginError, MC3Plugin, msghdlr
+from mc3p.plugins import PluginError, MC3Plugin
 
 logger = logging.getLogger('plugin.dvr')
 
@@ -250,6 +250,11 @@ def playback():
 
     # Loop until we're done.
     asyncore.loop(0.1)
+
+    # Tear down client.
+    # You might notice that the client isn't actually used anywhere in this
+    # scope. That's because of asyncore magic. :c
+    del client
 
     print "Done."
 
