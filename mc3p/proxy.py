@@ -15,19 +15,24 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import logging, logging.config, os
-import asyncore, socket, sys, signal, struct, logging.config, re, os.path, inspect, imp
-import traceback, tempfile
+import asyncore
+import logging
+import logging.config
+import re
+import signal
+import socket
+import sys
+import traceback
 from time import time, sleep
 from optparse import OptionParser
 from getpass import getpass
 
 import messages
 from plugins import PluginConfig, PluginManager
-from parsing import parse_unsigned_byte, parse_int
+from parsing import parse_unsigned_byte
 from util import Stream, PartialPacketException
 from authentication import Authenticator, minecraft_credentials
-import util
+from util import Stream, PartialPacketException, config_logging
 import encryption
 
 logger = logging.getLogger("mc3p")
@@ -339,7 +344,7 @@ if __name__ == "__main__":
     (host, port, opts, pcfg) = parse_args()
 
     if opts.logfile:
-        util.config_logging(opts.logfile)
+        config_logging(opts.logfile)
 
     if opts.loglvl:
         logging.root.setLevel(getattr(logging, opts.loglvl.upper()))
