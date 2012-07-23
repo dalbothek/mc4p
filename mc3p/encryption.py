@@ -8,7 +8,7 @@
 
 from Crypto.PublicKey import RSA
 from Crypto import Random
-from Crypto.Cipher import AES, DES
+from Crypto.Cipher import AES, DES, PKCS1_v1_5
 from hashlib import md5
 from struct import unpack
 
@@ -44,12 +44,14 @@ def generate_shared_secret():
 
 def encrypt_shared_secret(shared_secret, public_key):
     """Encrypts the PKCS#1 padded shared secret using the public RSA key"""
-    return public_key.encrypt(_pkcs1_pad(shared_secret), 0)[0]
+    cipher = PKCS1_v1_5.new(public_key)
+    return cipher.encrypt(shared_secret)
 
 
 def decrypt_shared_secret(encrypted_key, private_key):
     """Decrypts the PKCS#1 padded shared secret using the private RSA key"""
-    return _pkcs1_unpad(private_key.decrypt(encrypted_key))
+    cipher = PKCS1_v1_5.new(private_key)
+    return cipher.decrypt(encrypted_key, None)
 
 
 def encryption_for_version(version):
@@ -85,22 +87,6 @@ class RC4(object):
 def AES128CFB8(shared_secret):
     """Creates a AES128 stream cipher using cfb8 mode"""
     return AES.new(shared_secret, AES.MODE_CFB, shared_secret)
-
-
-def _pkcs1_unpad(bytes):
-    pos = bytes.find('\x00')
-    if pos > 0:
-        return bytes[pos+1:]
-
-
-def _pkcs1_pad(bytes):
-    assert len(bytes) < 117
-    padding = ""
-    while len(padding) < 125-len(bytes):
-        byte = Random.get_random_bytes(1)
-        if byte != '\x00':
-            padding += byte
-    return '\x00\x02%s\x00%s' % (padding, bytes)
 
 
 class PBEWithMD5AndDES(object):
