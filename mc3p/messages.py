@@ -638,3 +638,21 @@ srv_msgs[0x36] = defmsg(0x36, "Block Action",[
 
 srv_msgs[0x38] = defmsg(0x38, "Chunk Bulk",[
     ('chunks', MC_chunks)])
+
+srv_msgs[0x14] = defmsg(0x14, "Entity spawn", [
+    ('eid', MC_int),
+    ('name', MC_string),
+    ('x', MC_int),
+    ('y', MC_int),
+    ('z', MC_int),
+    ('rotation', MC_byte),
+    ('pitch', MC_byte),
+    ('curr_item', MC_short),
+    ('metadata',MC_metadata)])
+
+srv_msgs[0x35] = defmsg(0x35, "Block change", [
+    ('x',MC_int),
+    ('y',MC_byte),
+    ('z',MC_int),
+    ('block_type',MC_short),
+    ('block_metadata',MC_byte)])
