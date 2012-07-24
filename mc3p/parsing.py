@@ -175,24 +175,26 @@ def parse_metadata(stream):
     data=[]
     type = parse_unsigned_byte(stream)
     while (type != 127):
+        entry = {}
+        data.append(entry)
+        entry['index'] = type & 0x1f
         type = type >> 5
+        entry['type'] = type
         if type == 0:
-            data.append(parse_byte(stream))
+            entry['data'] = parse_byte(stream)
         elif type == 1:
-            data.append(parse_short(stream))
+            entry['data'] = parse_short(stream)
         elif type == 2:
-            data.append(parse_int(stream))
+            entry['data'] = parse_int(stream)
         elif type == 3:
-            data.append(parse_float(stream))
+            entry['data'] = parse_float(stream)
         elif type == 4:
-            data.append(parse_string(stream))
+            entry['data'] = parse_string(stream)
         elif type == 5:
-            data.append(parse_short(stream))
-            data.append(parse_byte(stream))
-            data.append(parse_short(stream))
+            entry['data'] = (parse_short(stream), parse_byte(stream), parse_short(stream))
         else:
             raise Exception("Unknown metadata type %d" % type)
-        type = parse_byte(stream)
+        type = parse_unsigned_byte(stream)
     return data
 
 def emit_metadata(md):
