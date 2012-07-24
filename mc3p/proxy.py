@@ -125,8 +125,8 @@ class ServerDispatcher(StreamServer):
         plugin_mgr = PluginManager(pcfg, cli_proxy, srv_proxy)
         cli_proxy.plugin_mgr = plugin_mgr
         srv_proxy.plugin_mgr = plugin_mgr
-        gevent.spawn(cli_proxy.run)
-        gevent.spawn(srv_proxy.run)
+        cli_proxy.start()
+        srv_proxy.start()
 
     def serve_forever(self):
         try:
@@ -154,7 +154,7 @@ class EOFException(Exception):
     pass
 
 
-class MinecraftProxy(object):
+class MinecraftProxy(gevent.Greenlet):
     """Proxies a packet stream from a Minecraft client or server.
     """
 
@@ -168,6 +168,8 @@ class MinecraftProxy(object):
         and creating a server proxy with other_side=client. Finally, the
         proxy creator should do client_proxy.other_side = server_proxy.
         """
+        super(MinecraftProxy, self).__init__()
+
         self.sock = src_sock
         self.closed = False
         self.plugin_mgr = None
@@ -292,7 +294,7 @@ class MinecraftProxy(object):
                         rebuild = True
                 if rebuild:
                     packet['raw_bytes'] = self.msg_spec[packet['msgtype']].emit(packet)
-                if forwarding and self.other_side:
+                if forwarding and self.other_side is not None:
                     self.other_side.send(packet['raw_bytes'])
                 if packet['msgtype'] == 0xfc and self.side == 'server':
                     self.other_side.start_cipher()
@@ -351,12 +353,13 @@ class MinecraftProxy(object):
         self.closed = True
         self.sock.close()
 
-    def run(self):
+    def _run(self):
         while not self.closed:
             try:
                 self.handle_read()
             except EOFException:
                 break
+            gevent.sleep()
         self.close()
         self.handle_close()
 
