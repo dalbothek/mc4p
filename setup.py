@@ -34,6 +34,6 @@ setup(
     description = "Pluggable Minecraft proxy",
     keywords = "minecraft proxy",
     url = "http://mattmcgill.com/mc3p/%s-%s-%s.egg" % (basename, version, pyversion),
-    install_requires = ("requests", "pycrypto", "certifi", "blessings")
+    install_requires = ("gevent", "pycrypto", "requests", "certifi", "blessings")
 )
 

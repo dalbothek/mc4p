@@ -15,17 +15,18 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import asyncore
 import logging
 import logging.config
 import re
 import signal
-import socket
 import sys
 import traceback
+import gevent
 from time import time, sleep
 from optparse import OptionParser
 from getpass import getpass
+from gevent.server import StreamServer
+from gevent.socket import create_connection
 
 import messages
 from plugins import PluginConfig, PluginManager
@@ -38,10 +39,6 @@ import encryption
 logger = logging.getLogger("mc3p")
 rsa_key = None
 auth = None
-
-def sigint_handler(signum, stack):
-    print "Received signal %d, shutting down" % signum
-    sys.exit(0)
 
 
 def parse_args():
@@ -99,58 +96,61 @@ def parse_args():
     return (host, port, opts, pcfg)
 
 
-class ServerDispatcher(asyncore.dispatcher):
+class ServerDispatcher(StreamServer):
     def __init__(self, locport, pcfg, host, port):
-        asyncore.dispatcher.__init__(self)
+        super(ServerDispatcher, self).__init__(("", locport))
         self.pcfg = pcfg
         self.target_host = host
         self.target_port = port
-
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.set_reuse_addr()
-        self.bind(("", locport))
-        self.listen(5)
-        logger.info("ServerDispatcher bound to %d" % port)
+        logger.info("Listening on port %d" % locport)
         if rsa_key is None:
             generate_rsa_key_pair()
 
-    def handle_accept(self):
-        pair = self.accept()
-        if pair:
-            sock, addr = pair
-            logger.info('Incoming connection from %s' % repr(addr))
-            MinecraftSession(pcfg, sock, self.target_host, self.target_port)
+    def handle(self, cli_sock, addr):
+        logger.info('Incoming connection from %s' % repr(addr))
+        try:
+            srv_sock = create_connection((self.target_host, self.target_port))
+            cli_proxy = MinecraftProxy(cli_sock)
+        except Exception as e:
+            cli_sock.close()
+            logger.error("Couldn't connect to %s:%d - %s", self.target_host,
+                         self.target_port, str(e))
+            logger.info(traceback.format_exc())
+            return
+        srv_proxy = MinecraftProxy(srv_sock, cli_proxy)
+        plugin_mgr = PluginManager(pcfg, cli_proxy, srv_proxy)
+        cli_proxy.plugin_mgr = plugin_mgr
+        srv_proxy.plugin_mgr = plugin_mgr
+        gevent.spawn(cli_proxy.run)
+        gevent.spawn(srv_proxy.run)
+
+    def serve_forever(self):
+        try:
+            super(ServerDispatcher, self).serve_forever()
+        except gevent.socket.error, e:
+            logger.error(e)
+
+    def close(self):
+        self.stop()
+        sys.exit()
+
 
 def generate_rsa_key_pair():
     global rsa_key
     logger.debug('Generating RSA key pair')
     rsa_key = encryption.generate_key_pair()
 
-class MinecraftSession(object):
-    """A client-server Minecraft session."""
-
-    def __init__(self, pcfg, clientsock, dsthost, dstport):
-        """Open connection to dsthost:dstport, and return client and server proxies."""
-        logger.info("creating proxy from client to %s:%d" % (dsthost,dstport))
-        self.srv_proxy = None
-        try:
-            serversock = socket.create_connection( (dsthost,dstport) )
-            self.cli_proxy = MinecraftProxy(clientsock)
-        except Exception as e:
-            clientsock.close()
-            logger.error("Couldn't connect to %s:%d - %s", dsthost, dstport, str(e))
-            logger.info(traceback.format_exc())
-            return
-        self.srv_proxy = MinecraftProxy(serversock, self.cli_proxy)
-        self.plugin_mgr = PluginManager(pcfg, self.cli_proxy, self.srv_proxy)
-        self.cli_proxy.plugin_mgr = self.plugin_mgr
-        self.srv_proxy.plugin_mgr = self.plugin_mgr
 
 class UnsupportedPacketException(Exception):
     def __init__(self,pid):
         Exception.__init__(self,"Unsupported packet id 0x%x" % pid)
 
-class MinecraftProxy(asyncore.dispatcher_with_send):
+
+class EOFException(Exception):
+    pass
+
+
+class MinecraftProxy(object):
     """Proxies a packet stream from a Minecraft client or server.
     """
 
@@ -164,7 +164,7 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
         and creating a server proxy with other_side=client. Finally, the
         proxy creator should do client_proxy.other_side = server_proxy.
         """
-        asyncore.dispatcher_with_send.__init__(self, src_sock)
+        self.sock = src_sock
         self.plugin_mgr = None
         self.other_side = other_side
         self.rsa_key = None
@@ -306,7 +306,9 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
         self.send_cipher = self.cipher(self.shared_secret)
 
     def recv(self, buffer_size):
-        data = asyncore.dispatcher_with_send.recv(self, buffer_size)
+        data = self.sock.recv(buffer_size)
+        if not data:
+            raise EOFException()
         if self.recv_cipher is None:
             return data
         return self.recv_cipher.decrypt(data)
@@ -314,7 +316,19 @@ class MinecraftProxy(asyncore.dispatcher_with_send):
     def send(self, data):
         if self.send_cipher is not None:
             data = self.send_cipher.encrypt(data)
-        return asyncore.dispatcher_with_send.send(self, data)
+        return self.sock.sendall(data)
+
+    def close(self):
+        self.sock.close()
+
+    def run(self):
+        while True:
+            try:
+                self.handle_read()
+            except EOFException:
+                break
+        self.close()
+        self.handle_close()
 
 class Message(dict):
     def __init__(self, d):
@@ -386,16 +400,17 @@ if __name__ == "__main__":
             sys.exit(1)
         logger.debug("Credentials are valid")
 
-    # Install signal handler.
-    signal.signal(signal.SIGINT, sigint_handler)
-
     server = ServerDispatcher(opts.locport, pcfg, host, port)
+
+    # Install signal handler.
+    gevent.signal(signal.SIGTERM, server.close)
+    gevent.signal(signal.SIGINT, server.close)
 
     # I/O event loop.
     if opts.perf_data:
         logger.warn("Profiling enabled, saving data to %s" % opts.perf_data)
         import cProfile
-        cProfile.run('asyncore.loop()', opts.perf_data)
+        cProfile.run('server.serve_forever()', opts.perf_data)
     else:
-        asyncore.loop()
+        server.serve_forever()
 
