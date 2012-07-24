@@ -22,7 +22,7 @@ from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
                      MC_metadata, MC_multi_block_change, MC_slot_update,
                      MC_multi_block_change2, MC_short, MC_slot_update2,
                      MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
-                     MC_blob, MC_chunks)
+                     MC_blob, MC_chunks, MC_tile_entity)
 
 protocol = {}
 
@@ -663,3 +663,16 @@ srv_msgs[0x35] = defmsg(0x35, "Block change", [
     ('z',MC_int),
     ('block_type',MC_short),
     ('block_metadata',MC_byte)])
+
+
+### VERSION 39 - Corresponds to 12w30c
+
+protocol[39] = tuple(map(list, protocol[38]))
+cli_msgs, srv_msgs = protocol[39]
+
+srv_msgs[0x84] = defmsg(0x84, "Update tile entity", [
+    ('x',MC_int),
+    ('y',MC_short),
+    ('z',MC_int),
+    ('action',MC_byte),
+    ('data',MC_tile_entity)])

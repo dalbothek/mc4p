@@ -464,3 +464,18 @@ def emit_chunks(chunks):
                                      emit_short(md['add_bitmap']))) for md in chunks['metadata'])))
 
 MC_chunks = Parsem(parse_chunks, emit_chunks)
+
+def parse_tile_entity(stream):
+    length = parse_short(stream)
+    if length == -1:
+        return None
+    else:
+        return stream.read(length)
+
+def emit_tile_entity(data):
+    if data is None:
+        return emit_short(-1)
+    else:
+        return emit_short(len(data)) + data
+
+MC_tile_entity = Parsem(parse_tile_entity, emit_tile_entity)
