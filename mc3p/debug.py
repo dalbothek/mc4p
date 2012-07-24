@@ -308,8 +308,7 @@ class Server(object):
             print t.bold("\nGenerating RSA key pair")
             key = encryption.generate_key_pair()
             challenge = encryption.generate_challenge_token()
-            server_id = encryption.generate_random_bytes(10)
-            server_id = "".join("%02x" % ord(c) for c in server_id)
+            server_id = encryption.generate_server_id()
 
             packet = {'msgtype': 0xfd,
                       'server_id': server_id,

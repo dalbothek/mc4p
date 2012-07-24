@@ -39,6 +39,7 @@ import encryption
 logger = logging.getLogger("mc3p")
 rsa_key = None
 auth = None
+check_auth = False
 
 
 def parse_args():
@@ -55,6 +56,9 @@ def parse_args():
                       help="logging configuration file (optional)")
     parser.add_option("-p", "--local-port", dest="locport", metavar="PORT",
                       default="34343", type="int", help="Listen on this port")
+    parser.add_option("-c", "--check-authentication", dest="check_auth",
+                      action="store_true", default=False,
+                      help="Check authenticity of connecting clients")
     parser.add_option("-a", "--auto-authenticate", dest="authenticate",
                       action="store_true", default=False,
                       help="Authenticate with the credentials stored in the game client")
@@ -165,6 +169,7 @@ class MinecraftProxy(object):
         proxy creator should do client_proxy.other_side = server_proxy.
         """
         self.sock = src_sock
+        self.closed = False
         self.plugin_mgr = None
         self.other_side = other_side
         self.rsa_key = None
@@ -176,6 +181,7 @@ class MinecraftProxy(object):
             self.side = 'client'
             self.msg_spec = messages.protocol[0][0]
             self.rsa_key = rsa_key
+            self.username = None
         else:
             self.side = 'server'
             self.msg_spec = messages.protocol[0][1]
@@ -216,6 +222,7 @@ class MinecraftProxy(object):
                         logger.error("Unsupported protocol version %d" % proto_version)
                         self.handle_close()
                         return
+                    self.username = packet['username']
                     self.msg_spec, self.other_side.msg_spec = messages.protocol[proto_version]
                     self.cipher = encryption.encryption_for_version(proto_version)
                     self.other_side.cipher = self.cipher
@@ -229,8 +236,13 @@ class MinecraftProxy(object):
                     )
                     if 'challenge_token' in packet:
                         self.challenge_token = packet['challenge_token']
+                        self.other_side.challenge_token = self.challenge_token
                     self.other_side.server_id = packet['server_id']
-                    packet['server_id'] = "-"
+                    if check_auth:
+                        packet['server_id'] = encryption.generate_server_id()
+                    else:
+                        packet['server_id'] = "-"
+                    self.server_id = packet['server_id']
                     rebuild = True
                 elif packet['msgtype'] == 0xfc and self.side == 'client':
                     self.shared_secret = encryption.decrypt_shared_secret(
@@ -247,6 +259,12 @@ class MinecraftProxy(object):
                         self.other_side.rsa_key
                     )
                     if 'challenge_token' in packet:
+                        challenge_token = encryption.decrypt_shared_secret(
+                            packet['challenge_token'], self.rsa_key
+                        )
+                        if challenge_token != self.challenge_token:
+                            self.kick("Invalid client reply")
+                            return
                         packet['challenge_token'] = encryption.encrypt_shared_secret(
                             self.other_side.challenge_token,
                             self.other_side.rsa_key
@@ -256,6 +274,13 @@ class MinecraftProxy(object):
                         auth.join_server(self.server_id,
                                         self.other_side.shared_secret,
                                         self.other_side.rsa_key)
+                    if check_auth:
+                        logger.info("Checking authenticity")
+                        if not Authenticator.check_player(
+                            self.username, self.other_side.server_id,
+                            self.shared_secret, self.rsa_key):
+                            self.kick("Unable to verify username")
+                            return
                     rebuild = True
                 elif packet['msgtype'] == 0xfc and self.side == 'server':
                     logger.debug("Starting encryption")
@@ -289,6 +314,10 @@ class MinecraftProxy(object):
             self.out_of_sync = True
             self.stream.reset()
 
+    def kick(self, reason):
+        self.send(self.msg_spec[0xff].emit({'reason': reason}))
+        self.handle_close()
+
     def handle_close(self):
         """Call shutdown handler."""
         logger.info("%s socket closed.", self.side)
@@ -319,10 +348,11 @@ class MinecraftProxy(object):
         return self.sock.sendall(data)
 
     def close(self):
+        self.closed = True
         self.sock.close()
 
     def run(self):
-        while True:
+        while not self.closed:
             try:
                 self.handle_read()
             except EOFException:
@@ -399,6 +429,9 @@ if __name__ == "__main__":
             logger.error("Authentication failed")
             sys.exit(1)
         logger.debug("Credentials are valid")
+
+    if opts.check_auth:
+        check_auth = True
 
     server = ServerDispatcher(opts.locport, pcfg, host, port)
 

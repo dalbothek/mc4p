@@ -32,6 +32,11 @@ def generate_random_bytes(length):
     return Random.get_random_bytes(length)
 
 
+def generate_server_id():
+    """Generates 20 random hex characters"""
+    return "".join("%02x" % ord(c) for c in generate_random_bytes(10))
+
+
 def generate_challenge_token():
     """Generates 4 random bytes"""
     return generate_random_bytes(4)
