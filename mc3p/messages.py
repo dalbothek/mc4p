@@ -15,13 +15,14 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from parsing import (defloginmsg, defmsg, MC_bool, MC_byte, MC_chunk,
-                     MC_chunk2, MC_double, MC_explosion_records,
-                     MC_fireball_data, MC_float, MC_int, MC_inventory,
-                     MC_inventory2, MC_item_data, MC_long, MC_metadata,
-                     MC_multi_block_change, MC_multi_block_change2, MC_short,
-                     MC_slot_update, MC_slot_update2, MC_string, MC_string8,
-                     MC_unsigned_byte)
+from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
+                     MC_chunk2, MC_double, MC_entity_list, MC_fireball_data,
+                     MC_explosion_records, MC_float, MC_int, MC_inventory,
+                     MC_inventory2, MC_inventory3, MC_item_data, MC_long,
+                     MC_metadata, MC_multi_block_change, MC_slot_update,
+                     MC_multi_block_change2, MC_short, MC_slot_update2,
+                     MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
+                     MC_blob, MC_chunks)
 
 protocol = {}
 
