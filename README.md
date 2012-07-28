@@ -6,20 +6,6 @@ server. With mc3p, you can create programs (mc3p plugins) that examine
 and modify messages sent between the Minecraft client and server without
 writing any multi-threaded or network-related code.
 
-## Installation.
-
-mc3p requires Python 2.7. The easiest way to install mc3p is with
-easy_install from the setuptools project. If you don't have setuptools
-installed, first follow the installation instructions on
-[this page](http://pypi.python.org/pypi/setuptools).
-
-With setuptools installed, installing mc3p is as simple as:
-
-    $ easy_install http://mattmcgill.com/mc3p/mc3p-0.3-py2.7.egg
-
-Note that, depending on your system configuration, you may have to run
-the command with root privileges.
-
 ### Installing from source
 
 To install from source, just clone the GitHub repository. You can then run
@@ -32,15 +18,27 @@ If mc3p is installed in 'development' mode, you can uninstall it with
 
     python setup.py develop --uninstall
 
+### Dependencies
+
+* [Python 2.7](http://www.python.org/download/releases/2.7.3/)
+* [setuptools](http://pypi.python.org/pypi/setuptools)
+
+#### Linux / Mac OS X
+* [libevent](http://libevent.org/)
+
+#### Windows
+* [gevent](http://code.google.com/p/gevent/downloads/list)
+* [pycrypto](http://dragffy.com/blog/posts/ython-pycrypto-2-4-1-32-and-64-bit-windows-32x64-amdintel-installers)
+
 ## Running mc3p.
 
-To start an mc3p server that listens on port 80 and forwards connections
+To start an mc3p server that listens on port 25566 and forwards connections
 to a Minecraft server:
 
-    $ python -m mc3p.proxy -p 80 <server>
+    $ python -m mc3p.proxy -p 25566 <server>
 
 Within your Minecraft client, you can then connect to <server> through
-mc3p using the server address 'localhost:80'. However, to do anything useful
+mc3p using the server address 'localhost:25566'. However, to do anything useful
 you must enable some plugins.
 
 ## Using mc3p plugins.
@@ -85,7 +83,7 @@ Now take a look at the source code for the 'mute' plugin:
 
     class MutePlugin(MC3Plugin):
         """Lets the client mute players, hiding their chat messages.
-        
+
         The client controls the plugin with chat commands:
             /mute NAME      Hide all messages from player NAME.
             /unmute NAME    Allow messages from player NAME.
