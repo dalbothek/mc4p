@@ -33,7 +33,7 @@ setup(
     author_email = "matt.mcgill@gmail.com",
     description = "Pluggable Minecraft proxy",
     keywords = "minecraft proxy",
-    url = "http://mattmcgill.com/mc3p/%s-%s-%s.egg" % (basename, version, pyversion),
+    url = "https://github.com/mmcgill/mc3p",
     install_requires = ("gevent", "pycrypto", "requests", "certifi", "blessings")
 )
 

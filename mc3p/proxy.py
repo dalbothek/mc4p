@@ -56,7 +56,7 @@ def parse_args():
                       help="logging configuration file (optional)")
     parser.add_option("-p", "--local-port", dest="locport", metavar="PORT",
                       default="34343", type="int", help="Listen on this port")
-    parser.add_option("-c", "--check-authentication", dest="check_auth",
+    parser.add_option("-c", "--check-authenticity", dest="check_auth",
                       action="store_true", default=False,
                       help="Check authenticity of connecting clients")
     parser.add_option("-a", "--auto-authenticate", dest="authenticate",

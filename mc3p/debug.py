@@ -118,11 +118,7 @@ class LoggingSocketCipherStream(LoggingSocketStream):
         return data
 
     def _read_byte(self):
-        try:
-            byte = super(LoggingSocketCipherStream, self)._read_byte()
-        except EOFException, e:
-            self.packet_finished()
-            raise e
+        byte = super(LoggingSocketCipherStream, self)._read_byte()
         decrypted = self.cipher.decrypt(byte)
         if is_terminal:
             sys.stdout.write(''.join((t.move_down, t.move_right * self.pos,
@@ -478,7 +474,6 @@ def parse_packet(sock, msg_spec, expecting=None,
     with stream:
         msgtype = parse_unsigned_byte(stream)
         if expecting is not None and msgtype != expecting:
-            stream.packet_finished()
             if backup_cipher is None:
                 raise UnexpectedPacketException(msgtype)
             else:
