@@ -23,7 +23,7 @@ from mc3p.plugins import MC3Plugin
 from mc3p.messages import cli_msgs, srv_msgs
 
 IGNORE = ['mgstype']
-SHORTEN = ['chunk', 'raw_bytes']
+SHORTEN = ['chunk', 'chunks', 'raw_bytes']
 
 class LogPlugin(MC3Plugin):
     def default_handler(self, msg, source):
