@@ -34,11 +34,11 @@ class Authenticator(object):
 
     def join_server(self, server_id, shared_secret, public_key):
         r = requests.get(self.SESSION_URL,
-                          params={'user': self.player_name(),
-                                  'sessionId': self._get_session_id(),
-                                  'serverId': self.login_hash(server_id,
-                                                              shared_secret,
-                                                              public_key)})
+                         params={'user': self.player_name(),
+                                 'sessionId': self._get_session_id(),
+                                 'serverId': self.login_hash(server_id,
+                                                             shared_secret,
+                                                             public_key)})
 
     def player_name(self):
         if self._get_session() is None:
@@ -83,8 +83,8 @@ class Authenticator(object):
         digest.update(shared_secret)
         digest.update(encode_public_key(public_key))
         d = long(digest.hexdigest(), 16)
-        if d >> 39*4 & 0x8:
-            return "-%x" % ((-d) & (2**(40*4)-1))
+        if d >> 39 * 4 & 0x8:
+            return "-%x" % ((-d) & (2 ** (40 * 4) - 1))
         return "%x" % d
 
 
@@ -97,9 +97,9 @@ def minecraft_credentials():
         return None
     plaintext = PBEWithMD5AndDES('passwordfile').decrypt(ciphertext)
     user_size = unpack(">h", plaintext[:2])[0]
-    user = plaintext[2:user_size+2]
-    password_size = unpack(">h", plaintext[2+user_size:4+user_size])[0]
-    password = plaintext[4+user_size:]
+    user = plaintext[2:user_size + 2]
+    password_size = unpack(">h", plaintext[2 + user_size:4 + user_size])[0]
+    password = plaintext[4 + user_size:]
     return user, password
 
 

@@ -191,7 +191,11 @@ def parse_metadata(stream):
         elif type == 4:
             entry['data'] = parse_string(stream)
         elif type == 5:
-            entry['data'] = (parse_short(stream), parse_byte(stream), parse_short(stream))
+            id_ = parse_short(stream)
+            if id_ == -1:
+                entry['data'] = (id_)
+            else:
+                entry['data'] = (id_, parse_byte(stream), parse_short(stream))
         else:
             raise Exception("Unknown metadata type %d" % type)
         type = parse_unsigned_byte(stream)

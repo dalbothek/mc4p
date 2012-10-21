@@ -31,6 +31,8 @@ protocol = {}
 protocol[0] = [None] * 256, [None] * 256
 cli_msgs, srv_msgs = protocol[0]
 
+cli_msgs[0x01] = defmsg(0x01, "Magic constant", [])
+
 cli_msgs[0x02] = defhandshakemsg([
     ('username',MC_string),
     ('host',MC_string),
@@ -676,3 +678,81 @@ srv_msgs[0x84] = defmsg(0x84, "Update tile entity", [
     ('z',MC_int),
     ('action',MC_byte),
     ('data',MC_tile_entity)])
+
+
+### VERSION 40 - Corresponds to 12w32a
+
+protocol[40] = tuple(map(list, protocol[39]))
+cli_msgs, srv_msgs = protocol[40]
+
+srv_msgs[0x04] = defmsg(0x04, "Time", [
+    ('time',MC_long),
+    ('day_time',MC_long)])
+
+
+### VERSION 41 - Corresponds to 12w34a
+
+protocol[41] = tuple(map(list, protocol[40]))
+
+
+### VERSION 42 - Corresponds to 12w36a
+
+protocol[42] = tuple(map(list, protocol[41]))
+cli_msgs, srv_msgs = protocol[42]
+
+cli_msgs[0x15] = \
+srv_msgs[0x15] = defmsg(0x15, "Pickup spawn", [
+    ('eid',MC_int),
+    ('item',MC_slot_update3),
+    ('x',MC_int),
+    ('y',MC_int),
+    ('z',MC_int),
+    ('rotation',MC_byte),
+    ('pitch',MC_byte),
+    ('roll',MC_byte)])
+
+
+### VERSION 43 - Corresponds to 12w38a
+
+protocol[43] = tuple(map(list, protocol[42]))
+
+
+### VERSION 44 - Corresponds to 12w40a
+
+protocol[44] = tuple(map(list, protocol[43]))
+cli_msgs, srv_msgs = protocol[44]
+
+cli_msgs[0x66] = defmsg(0x66, "Window click", [
+    ('window_id', MC_byte),
+    ('slot', MC_short),
+    ('is_right_click', MC_byte),
+    ('action_num', MC_short),
+    ('shift', MC_byte),
+    ('details', MC_slot_update3)])
+
+
+### VERSION 46 - Corresponds to 12w41a
+
+protocol[46] = tuple(map(list, protocol[44]))
+cli_msgs, srv_msgs = protocol[46]
+
+cli_msgs[0xcc] = defmsg(0xcc, "Settings", [
+    ('locale', MC_string),
+    ('view_distance', MC_byte),
+    ('chat_flags', MC_byte),
+    ('difficulty', MC_byte),
+    ('show_cape', MC_bool)])
+
+
+### VERSION 47 - Corresponds to 12w42b
+
+protocol[47] = tuple(map(list, protocol[46]))
+cli_msgs, srv_msgs = protocol[47]
+
+srv_msgs[0x3d] = defmsg(0x3d, "Sound effect", [
+    ('effect_id', MC_int),
+    ('x', MC_int),
+    ('y', MC_byte),
+    ('z', MC_int),
+    ('data', MC_int),
+    ('constant_volume', MC_bool)])
