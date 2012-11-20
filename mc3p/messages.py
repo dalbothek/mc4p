@@ -22,7 +22,8 @@ from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
                      MC_metadata, MC_multi_block_change, MC_slot_update,
                      MC_multi_block_change2, MC_short, MC_slot_update2,
                      MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
-                     MC_blob, MC_chunks, MC_tile_entity)
+                     MC_blob, MC_chunks, MC_tile_entity, MC_item_data2,
+                     MC_metadata2)
 
 protocol = {}
 
@@ -756,3 +757,55 @@ srv_msgs[0x3d] = defmsg(0x3d, "Sound effect", [
     ('z', MC_int),
     ('data', MC_int),
     ('constant_volume', MC_bool)])
+
+
+## Forge support
+cli_msgs[0x01] = srv_msgs[0x01]
+
+
+### VERSION 48 - Corresponds to 1.4.3
+
+protocol[48] = tuple(map(list, protocol[47]))
+cli_msgs, srv_msgs = protocol[48]
+
+srv_msgs[0x14] = defmsg(0x14, "Entity spawn", [
+    ('eid', MC_int),
+    ('name', MC_string),
+    ('x', MC_int),
+    ('y', MC_int),
+    ('z', MC_int),
+    ('rotation', MC_byte),
+    ('pitch', MC_byte),
+    ('curr_item', MC_short),
+    ('metadata',MC_metadata2)])
+
+srv_msgs[0x18] = defmsg(0x18, "Mob spawn", [
+    ('eid',MC_int),
+    ('mob_type',MC_byte),
+    ('x',MC_int),
+    ('y',MC_int),
+    ('z',MC_int),
+    ('yaw',MC_byte),
+    ('pitch',MC_byte),
+    ('head_yaw',MC_byte),
+    ('u1',MC_short),
+    ('u2',MC_short),
+    ('u3',MC_short),
+    ('metadata',MC_metadata2)])
+
+cli_msgs[0x28] = \
+srv_msgs[0x28] = defmsg(0x28, "Entity metadata", [
+    ('eid',MC_int),
+    ('metadata',MC_metadata2)])
+
+
+### VERSION 49 - Corresponds to 1.4.4
+
+protocol[49] = tuple(map(list, protocol[48]))
+cli_msgs, srv_msgs = protocol[49]
+
+cli_msgs[0x83] = \
+srv_msgs[0x83] = defmsg(0x83, "Item data", [
+    ('item_type', MC_short),
+    ('item_id', MC_short),
+    ('data', MC_item_data2)])

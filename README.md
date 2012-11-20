@@ -27,8 +27,8 @@ If mc3p is installed in 'development' mode, you can uninstall it with
 * [libevent](http://libevent.org/)
 
 #### Windows
-* [gevent](http://code.google.com/p/gevent/downloads/list)
-* [pycrypto](http://dragffy.com/blog/posts/ython-pycrypto-2-4-1-32-and-64-bit-windows-32x64-amdintel-installers)
+* [gevent](https://github.com/SiteSupport/gevent/downloads)
+* pycrypto ([32bit](http://www.dragffy.com/wp-content/uploads/2011/11/pycrypto-2.4.1.win32-py2.7.exe) | [64bit](http://dl.dropbox.com/u/90067063/pycrypto-2.6.win-amd64-py2.7.exe))
 
 ## Running mc3p.
 

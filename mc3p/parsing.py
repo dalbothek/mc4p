@@ -206,6 +206,34 @@ def emit_metadata(md):
 
 MC_metadata = Parsem(parse_metadata, emit_metadata)
 
+def parse_metadata2(stream):
+    data=[]
+    type = parse_unsigned_byte(stream)
+    while (type != 127):
+        entry = {}
+        data.append(entry)
+        entry['index'] = type & 0x1f
+        type = type >> 5
+        entry['type'] = type
+        if type == 0:
+            entry['data'] = parse_byte(stream)
+        elif type == 1:
+            entry['data'] = parse_short(stream)
+        elif type == 2:
+            entry['data'] = parse_int(stream)
+        elif type == 3:
+            entry['data'] = parse_float(stream)
+        elif type == 4:
+            entry['data'] = parse_string(stream)
+        elif type == 5:
+            parse_slot_update3(stream)
+        else:
+            raise Exception("Unknown metadata type %d" % type)
+        type = parse_unsigned_byte(stream)
+    return data
+
+MC_metadata2 = Parsem(parse_metadata2, emit_metadata)
+
 def parse_inventory(stream):
     n = parse_short(stream)
     inv = { "count": n }
@@ -410,9 +438,21 @@ def parse_item_data(stream):
 
 def emit_item_data(s):
     assert len(s) < 265
-    return ''.join([emit_unsigned_byte(len(s)),s])
+    return ''.join([emit_short(len(s)),s])
 
 MC_item_data = Parsem(parse_item_data, emit_item_data)
+
+def parse_item_data2(stream):
+    n = parse_short(stream)
+    if n == 0:
+        return ''
+    return stream.read(n)
+
+def emit_item_data2(s):
+    assert len(s) < 265
+    return ''.join([emit_unsigned_byte(len(s)),s])
+
+MC_item_data2 = Parsem(parse_item_data2, emit_item_data2)
 
 def parse_fireball_data(stream):
     data = {}

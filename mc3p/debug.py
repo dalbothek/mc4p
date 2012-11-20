@@ -1,3 +1,4 @@
+# -*- coding: utf8 -*-
 # This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
 #
 # This program is free software. It comes without any warranty, to
@@ -289,8 +290,15 @@ class Server(object):
                               "or Handshake (0x02) packet")
             packet = parse_packet(sock, clt_spec)
             if packet['msgtype'] == 0xfe:
+                motd = '\x00'.join((u'§1',  # magic
+                                    str(max(protocol.keys())),  # version
+                                    'latest',  # version string
+                                    'mc3p debugger',  # motd
+                                    '0',
+                                    '1'))
+
                 send_packet(sock, srv_spec, {'msgtype': 0xff,
-                                             'reason': 'mc3p debugger'})
+                                             'reason': motd})
                 return
             elif packet['msgtype'] != 0x02:
                 raise UnexpectedPacketException(packet['msgtype'])
