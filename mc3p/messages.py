@@ -809,3 +809,19 @@ srv_msgs[0x83] = defmsg(0x83, "Item data", [
     ('item_type', MC_short),
     ('item_id', MC_short),
     ('data', MC_item_data2)])
+
+
+### VERSION 50 - Corresponds to 12w49a
+
+protocol[50] = tuple(map(list, protocol[49]))
+cli_msgs, srv_msgs = protocol[50]
+
+srv_msgs[0x17] = defmsg(0x17, "Add vehicle/object", [
+    ('eid',MC_int),
+    ('type',MC_byte),
+    ('x',MC_int),
+    ('y',MC_int),
+    ('z',MC_int),
+    ('yaw',MC_byte),
+    ('pitch',MC_byte),
+    ('fireball_data',MC_fireball_data)])
