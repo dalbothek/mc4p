@@ -509,6 +509,29 @@ def emit_chunks(chunks):
 
 MC_chunks = Parsem(parse_chunks, emit_chunks)
 
+def parse_chunks2(stream):
+    size = parse_short(stream)
+    datalen = parse_int(stream)
+    skylight = parse_bool(stream)
+    data = stream.read(datalen)
+    metadata = [{'x': parse_int(stream),
+                  'z': parse_int(stream),
+                  'bitmap': parse_short(stream),
+                  'add_bitmap': parse_short(stream)} for i in range(size)]
+    return {'data': data, 'metadata': metadata, 'skylight': skylight}
+
+def emit_chunks2(chunks):
+    return ''.join((emit_short(len(chunks['metadata'])),
+                    emit_int(len(chunks['data'])),
+                    emit_bool(chunks['skylight']),
+                    chunks['data'],
+                    ''.join(''.join((emit_int(md['x']),
+                                     emit_int(md['z']),
+                                     emit_short(md['bitmap']),
+                                     emit_short(md['add_bitmap']))) for md in chunks['metadata'])))
+
+MC_chunks2 = Parsem(parse_chunks2, emit_chunks2)
+
 def parse_tile_entity(stream):
     length = parse_short(stream)
     if length == -1:
