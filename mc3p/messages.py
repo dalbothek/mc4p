@@ -22,7 +22,7 @@ from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
                      MC_metadata, MC_multi_block_change, MC_slot_update,
                      MC_multi_block_change2, MC_short, MC_slot_update2,
                      MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
-                     MC_blob, MC_chunks, MC_tile_entity, MC_item_data2,
+                     MC_blob, MC_chunks, MC_chunks2, MC_tile_entity, MC_item_data2,
                      MC_metadata2)
 
 protocol = {}
@@ -825,3 +825,16 @@ srv_msgs[0x17] = defmsg(0x17, "Add vehicle/object", [
     ('yaw',MC_byte),
     ('pitch',MC_byte),
     ('fireball_data',MC_fireball_data)])
+
+
+### VERSION 51 - Corresponds to 1.4.6
+
+protocol[51] = tuple(map(list, protocol[50]))
+cli_msgs, srv_msgs = protocol[51]
+
+# 0x15 (Spawn Dropped Item) removed
+cli_msgs[0x15] = \
+srv_msgs[0x15] = None
+
+srv_msgs[0x38] = defmsg(0x38, "Chunk Bulk",[
+    ('chunks', MC_chunks2)])
