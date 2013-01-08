@@ -838,3 +838,7 @@ srv_msgs[0x15] = None
 
 srv_msgs[0x38] = defmsg(0x38, "Chunk Bulk",[
     ('chunks', MC_chunks2)])
+
+
+### VERSION 52 - Corresponds to 13w01b
+protocol[52] = protocol[51]
