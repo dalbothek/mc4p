@@ -22,8 +22,9 @@ from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
                      MC_metadata, MC_multi_block_change, MC_slot_update,
                      MC_multi_block_change2, MC_short, MC_slot_update2,
                      MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
-                     MC_blob, MC_chunks, MC_chunks2, MC_tile_entity, MC_item_data2,
-                     MC_metadata2)
+                     MC_blob, MC_chunks, MC_chunks2, MC_tile_entity,
+                     MC_item_data2, MC_metadata2, defconditionalmsg,
+                     MC_player_list)
 
 protocol = {}
 
@@ -841,4 +842,62 @@ srv_msgs[0x38] = defmsg(0x38, "Chunk Bulk",[
 
 
 ### VERSION 52 - Corresponds to 13w01b
-protocol[52] = protocol[51]
+protocol[52] = tuple(map(list, protocol[51]))
+cli_msgs, srv_msgs = protocol[52]
+
+srv_msgs[0x64] = defmsg(0x64, "Open window", [
+    ('window_id', MC_byte),
+    ('inv_type', MC_byte),
+    ('window_title', MC_string),
+    ('num_slots', MC_byte),
+    ('custom_title', MC_byte)])
+
+
+### VERSION 53 - Corresponds to 13w02a
+protocol[53] = protocol[52]
+
+
+### VERSION 54 - Corresponds to 13w03a
+protocol[54] = protocol[53]
+
+
+### VERSION 55 - Corresponds to 13w04a
+protocol[55] = tuple(map(list, protocol[54]))
+cli_msgs, srv_msgs = protocol[55]
+
+srv_msgs[0xce] = defmsg(0xce, "Create Scoreboard", [
+    ('name', MC_string),
+    ('display_text', MC_string),
+    ('remove', MC_byte)])
+
+srv_msgs[0xcf] = defmsg(0xcf, "Update Score", [
+    ('item_name', MC_string),
+    ('remove', MC_byte),
+    ('score_name', MC_string),
+    ('value', MC_int)])
+
+srv_msgs[0xd0] = defmsg(0xd0, "Display Scoreboard", [
+    ('position', MC_byte),
+    ('score_name', MC_string)])
+
+
+### VERSION 56 - Corresponds to 13w05a
+protocol[56] = tuple(map(list, protocol[55]))
+cli_msgs, srv_msgs = protocol[56]
+
+srv_msgs[0xd1] = defconditionalmsg(0xd1, "Teams", [
+    ('name', MC_string),
+    ('mode', MC_byte),
+    ('display_name', MC_string, lambda msg: msg['mode'] in (0, 2)),
+    ('prefix', MC_string, lambda msg: msg['mode'] in (0, 2)),
+    ('suffix', MC_string, lambda msg: msg['mode'] in (0, 2)),
+    ('friendly_fire', MC_bool, lambda msg: msg['mode'] in (0, 2)),
+    ('players', MC_player_list, lambda msg: msg['mode'] in (0, 3, 4))])
+
+
+### VERSION 57-60 - Corresponds to 13w05a - 13w09c
+protocol[60] = protocol[59] = protocol[58] = protocol[57] = protocol[56]
+
+
+### VERSION 60 - Corresponds to 1.5.2
+protocol[61] = protocol[60]

@@ -58,6 +58,29 @@ def defmsg(msgtype, name, pairs):
                         ''.join([parsem.emit(msg[name]) for (name,parsem) in pairs])])
     return Parsem(parse,emit,name)
 
+
+def defconditionalmsg(msgtype, name, tuples):
+    """Build a Parsem for a message out of (name,Parsem,condition) tuples."""
+    def parse(stream):
+        msg = {'msgtype': msgtype}
+        for tuple_ in tuples:
+            if len(tuple_) == 2:
+                name, parsem = tuple_
+            else:
+                name, parsem, condition = tuple_
+                if not condition(msg):
+                    continue
+            msg[name] = parsem.parse(stream)
+        return msg
+
+    def emit(msg):
+        return ''.join([emit_unsigned_byte(msgtype),
+                        ''.join([tuple_[1].emit(msg[tuple_[0]])
+                                for tuple_ in tuples
+                                if len(tuples) == 2 or tuple_[2](msg)])])
+    return Parsem(parse, emit, name)
+
+
 def defhandshakemsg(tuples):
     """One-off used to define login message.
        The handshake must be parsed before we know which protocol
@@ -545,4 +568,17 @@ def emit_tile_entity(data):
     else:
         return emit_short(len(data)) + data
 
+
 MC_tile_entity = Parsem(parse_tile_entity, emit_tile_entity)
+
+
+def parse_player_list(stream):
+    length = parse_short(stream)
+    return [parse_string(stream) for i in range(length)]
+
+
+def emit_player_list(data):
+    return (emit_short(len(data)) +
+            ''.join(emit_string(player) for player in data))
+
+MC_player_list = Parsem(parse_player_list, emit_player_list)
