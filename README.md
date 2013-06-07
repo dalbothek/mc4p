@@ -1,20 +1,22 @@
 
-## What is mc3p?
+## What is mc4p?
 
-mc3p (short for Minecraft Protocol-Parsing Proxy) is a Minecraft proxy
-server. With mc3p, you can create programs (mc3p plugins) that examine
+mc4p (short for Minecraft Portable Protocol-Parsing Proxy) is a Minecraft proxy
+server. With mc4p, you can create programs (mc4p plugins) that examine
 and modify messages sent between the Minecraft client and server without
 writing any multi-threaded or network-related code.
+
+mc4p is a fork of [mmgcill](https://github.com/mmcgill)'s [mc3p](https://github.com/mmcgill/mc3p).
 
 ### Installing from source
 
 To install from source, just clone the GitHub repository. You can then run
-mc3p directly from the top-level directory of the repository, or install
+mc4p directly from the top-level directory of the repository, or install
 it in 'development' mode with
 
     python setup.py develop
 
-If mc3p is installed in 'development' mode, you can uninstall it with
+If mc4p is installed in 'development' mode, you can uninstall it with
 
     python setup.py develop --uninstall
 
@@ -30,46 +32,46 @@ If mc3p is installed in 'development' mode, you can uninstall it with
 * [gevent](https://github.com/SiteSupport/gevent/downloads)
 * pycrypto ([32bit](http://www.dragffy.com/wp-content/uploads/2011/11/pycrypto-2.4.1.win32-py2.7.exe) | [64bit](http://dl.dropbox.com/u/90067063/pycrypto-2.6.win-amd64-py2.7.exe))
 
-## Running mc3p.
+## Running mc4p.
 
-To start an mc3p server that listens on port 25566 and forwards connections
+To start an mc4p server that listens on port 25566 and forwards connections
 to a Minecraft server:
 
-    $ python -m mc3p.proxy -p 25566 <server>
+    $ python -m mc4p.proxy -p 25566 <server>
 
 Within your Minecraft client, you can then connect to <server> through
-mc3p using the server address 'localhost:25566'. However, to do anything useful
+mc4p using the server address 'localhost:25566'. However, to do anything useful
 you must enable some plugins.
 
-## Using mc3p plugins.
+## Using mc4p plugins.
 
-An mc3p plugin has complete control over all the messages that pass between
+An mc4p plugin has complete control over all the messages that pass between
 the Minecraft client and server. By manipulating messages sent between client
 and server, you can add useful functionality without modifying client or server
 code.
 
-To run a plugin, you must enable it with the --plugin <name> option when you start mc3p.
+To run a plugin, you must enable it with the --plugin <name> option when you start mc4p.
 All enabled plugins are initialized after a client successfully connects to a server.
-For example, to run the mute example plugin that comes with mc3p:
+For example, to run the mute example plugin that comes with mc4p:
 
-    $ python -m mc3p.proxy --plugin 'mc3p.plugin.mute' <server>
+    $ python -m mc4p.proxy --plugin 'mc4p.plugin.mute' <server>
 
 Some plugins accept arguments that modify their behavior. To pass arguments
 to a plugin, enclose them in parentheses following the plugin's name, like so:
 --plugin '<name>(<arguments>)'. Be sure to use quotes, or escape the parentheses
 as required by your shell.
 
-    $ python -m mc3p.proxy --plugin '<plugin>(<arguments>)' <server>
+    $ python -m mc4p.proxy --plugin '<plugin>(<arguments>)' <server>
 
 ## A Plugin Example: mute
 
-The 'mute' plugin is provided as a simple example of mc3p's flexibility.
+The 'mute' plugin is provided as a simple example of mc4p's flexibility.
 This plugin allows a player to mute chat messages from selected players on a
 server. It requires no modification to either the Minecraft client or server.
 
-Give it a try: start mc3p with the 'mute' plugin enabled:
+Give it a try: start mc4p with the 'mute' plugin enabled:
 
-    $ python -m mc3p.proxy --plugin 'mc3p.plugin.mute' your.favorite.server.com
+    $ python -m mc4p.proxy --plugin 'mc4p.plugin.mute' your.favorite.server.com
 
 You can now mute a player by typing '/mute NAME' in chat,
 and unmute them with '/unmute NAME'. You can display muted players with '/muted'.
@@ -79,9 +81,9 @@ discarding those sent by muted players.
 
 Now take a look at the source code for the 'mute' plugin:
 
-    from mc3p.plugins import MC3Plugin, msghdlr
+    from mc4p.plugins import mc4plugin, msghdlr
 
-    class MutePlugin(MC3Plugin):
+    class MutePlugin(mc4plugin):
         """Lets the client mute players, hiding their chat messages.
 
         The client controls the plugin with chat commands:
@@ -125,11 +127,11 @@ Now take a look at the source code for the 'mute' plugin:
                 # Drop messages containing the string <NAME>, where NAME is a muted player name.
                 return not any(txt.startswith('<%s>' % name) for name in self.muted_set)
 
-Every mc3p plugin is a Python module that contains a single *plugin class*, a
-subclass of MC3Plugin. A plugin must contain *exactly* one plugin class;
-mc3p will print an error if multiple sub-classes of MC3Plugin are found.
+Every mc4p plugin is a Python module that contains a single *plugin class*, a
+subclass of mc4plugin. A plugin must contain *exactly* one plugin class;
+mc4p will print an error if multiple sub-classes of mc4plugin are found.
 
-Once a client successfully connects to a server through the proxy, mc3p
+Once a client successfully connects to a server through the proxy, mc4p
 creates an instance of the plugin class of each enabled plugin, and calls its
 'init' method. Plugin classes should override 'init' to perform plugin-specific
 set-up. If the plugin was enabled with an argument string, that string is passed in
@@ -149,7 +151,7 @@ number between 0 and 0xFF. If
 your message handler is registered for multiple types, you can determine the type
 of a given message by checking `msg['msgtype']`. The other key-value pairs
 in the 'msg' dictionary depend on the specific message type. See
-[messages.py](https://github.com/mmcgill/mc3p/blob/master/mc3p/messages.py)
+[messages.py](https://github.com/mmcgill/mc4p/blob/master/mc4p/messages.py)
 for a definition of the keys associated with each message type.
 
 A message handler returns a boolean value indicating whether the message should
@@ -167,7 +169,7 @@ if it was not sent by a currently blocked player.
 
 Along with modifying or dropping messages, a plugin can create new messages
 by passing a 'msg' dictionary with a 'msgtype' and all relevant key-value pairs
-to the 'to_client' or 'to_server methods, which are defined in the MC3Plugin class.
+to the 'to_client' or 'to_server methods, which are defined in the mc4plugin class.
 
 The mute plugin uses the 'to_client' method to inject chat messages that indicate
 the result of each command issued by the user. Note that since these messages

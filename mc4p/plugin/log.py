@@ -1,6 +1,9 @@
-# This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
+# -*- coding: utf-8 -*-
+
+# This source file is part of mc4p,
+# the Minecraft Portable Protocol-Parsing Proxy.
 #
-# Copyright (C) 2011 Matthew J. McGill
+# Copyright (C) 2011 Matthew J. McGill, Simon Marti
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License v2 as published by
@@ -19,13 +22,13 @@
 # Message logging plugin, by fredreichbier
 
 
-from mc3p.plugins import MC3Plugin
-from mc3p.messages import cli_msgs, srv_msgs
+from mc4p.plugins import MC4Plugin
+from mc4p.messages import cli_msgs, srv_msgs
 
 IGNORE = ['mgstype']
 SHORTEN = ['chunk', 'chunks', 'raw_bytes']
 
-class LogPlugin(MC3Plugin):
+class LogPlugin(MC4Plugin):
     def default_handler(self, msg, source):
         line = []
         msgs = srv_msgs # TODO

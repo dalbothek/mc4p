@@ -1,5 +1,9 @@
-# -*- coding: utf8 -*-
-# This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
+# -*- coding: utf-8 -*-
+
+# This source file is part of mc4p,
+# the Minecraft Portable Protocol-Parsing Proxy.
+#
+# Copyright (C) 2011 Matthew J. McGill, Simon Marti
 #
 # This program is free software. It comes without any warranty, to
 # the extent permitted by applicable law. You can redistribute it
@@ -293,7 +297,7 @@ class Server(object):
                 motd = '\x00'.join((u'§1',  # magic
                                     str(max(protocol.keys())),  # version
                                     'latest',  # version string
-                                    'mc3p debugger',  # motd
+                                    'mc4p debugger',  # motd
                                     '0',
                                     '1'))
 

@@ -1,6 +1,9 @@
-# This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
+# -*- coding: utf-8 -*-
+
+# This source file is part of mc4p,
+# the Minecraft Portable Protocol-Parsing Proxy.
 #
-# Copyright (C) 2011 Matthew J. McGill
+# Copyright (C) 2011 Matthew J. McGill, Simon Marti
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License v2 as published by
@@ -112,12 +115,12 @@ class PluginConfig(object):
 
 
 class PluginManager(object):
-    """Manage plugins for an mc3p session."""
+    """Manage plugins for an mc4p session."""
     def __init__(self, config, cli_proxy, srv_proxy):
         # Map of plugin name to module.
         self.__plugins = {}
 
-        # Map of instance ID to MC3Plugin instance.
+        # Map of instance ID to MC4Plugin instance.
         self.__instances = {}
 
         # True when a successful client-server handshake has completed.
@@ -182,18 +185,18 @@ class PluginManager(object):
                 self._instantiate_one(id, pname)
 
     def _find_plugin_class(self, pname):
-        """Return the subclass of MC3Plugin in pmod."""
+        """Return the subclass of MC4Plugin in pmod."""
         pmod = self.__plugins[pname]
         class_check = lambda c: \
-            c != MC3Plugin and isinstance(c, type) and issubclass(c, MC3Plugin)
+            c != MC4Plugin and isinstance(c, type) and issubclass(c, MC4Plugin)
         classes = filter(class_check, pmod.__dict__.values())
         if len(classes) == 0:
             logger.error("Plugin '%s' does not contain " % pname + \
-                         "a subclass of MC3Plugin")
+                         "a subclass of MC4Plugin")
             return None
         elif len(classes) > 1:
             logger.error(("Plugin '%s' contains multiple subclasses " + \
-                          "of MC3Plugin: %s") % \
+                          "of MC4Plugin: %s") % \
                          (pname, ', '.join([c.__name__ for c in classes])))
         else:
             return classes[0]
@@ -286,8 +289,8 @@ def msghdlr(*msgtypes):
     return wrapper
 
 
-class MC3Plugin(object):
-    """Base class for mc3p plugins."""
+class MC4Plugin(object):
+    """Base class for mc4p plugins."""
 
     def __init__(self, proto_version, from_client, from_server):
         self.__proto_version = proto_version

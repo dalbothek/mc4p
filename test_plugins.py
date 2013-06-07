@@ -1,6 +1,9 @@
-# This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
+# -*- coding: utf-8 -*-
+
+# This source file is part of mc4p,
+# the Minecraft Portable Protocol-Parsing Proxy.
 #
-# Copyright (C) 2011 Matthew J. McGill
+# Copyright (C) 2011 Matthew J. McGill, Simon Marti
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License v2 as published by
@@ -17,17 +20,17 @@
 
 import sys, unittest, shutil, tempfile, os, os.path, logging, imp
 
-from mc3p.plugins import PluginConfig, PluginManager, MC3Plugin, msghdlr
+from mc4p.plugins import PluginConfig, PluginManager, MC4Plugin, msghdlr
 
 MOCK_PLUGIN_CODE = """
-from mc3p.plugins import MC3Plugin, msghdlr
+from mc4p.plugins import MC4Plugin, msghdlr
 
 print 'Initializing mockplugin.py'
 instances = []
 fail_on_init = False
 fail_on_destroy = False
 
-class MockPlugin(MC3Plugin):
+class MockPlugin(MC4Plugin):
     def __init__(self, *args, **kargs):
         super(MockPlugin, self).__init__(*args, **kargs)
         global instances
@@ -149,7 +152,7 @@ class TestPluginManager(unittest.TestCase):
         self.assertEqual(0, len(mockplugin.instances))
         
     def testMissingPluginClass(self):
-        self._write_and_load('empty', 'from mc3p.plugins import MC3Plugin\n')
+        self._write_and_load('empty', 'from mc4p.plugins import MC4Plugin\n')
         pcfg = PluginConfig().add('empty', 'p')
         self.pmgr = PluginManager(pcfg, self.cli_proxy, self.srv_proxy)
         self.pmgr._load_plugins()
@@ -157,7 +160,7 @@ class TestPluginManager(unittest.TestCase):
         self.pmgr._instantiate_all()
 
     def testMultiplePluginClasses(self):
-        code = MOCK_PLUGIN_CODE + "class AnotherPlugin(MC3Plugin): pass"
+        code = MOCK_PLUGIN_CODE + "class AnotherPlugin(MC4Plugin): pass"
         mockplugin = self._write_and_load('mockplugin', code)
         pcfg = PluginConfig().add('mockplugin', 'p')
         self.pmgr = PluginManager(pcfg, self.cli_proxy, self.srv_proxy)
@@ -192,13 +195,13 @@ class TestPluginManager(unittest.TestCase):
         self.assertEqual(2, len(mockplugin.instances))
 
     def testMessageHandlerRegistration(self):
-        class A(MC3Plugin):
+        class A(MC4Plugin):
             @msghdlr(0x01, 0x02, 0x03)
             def hdlr1(self, msg, dir): pass
             @msghdlr(0x04)
             def hdlr2(self, msg, dir): pass
         a = A(21, None, None)
-        hdlrs = getattr(a, '_MC3Plugin__hdlrs')
+        hdlrs = getattr(a, '_MC4Plugin__hdlrs')
         for msgtype in (0x01, 0x02, 0x03, 0x04):
             self.assertTrue(msgtype in hdlrs)
         self.assertEquals('hdlr1', hdlrs[0x01].__name__)

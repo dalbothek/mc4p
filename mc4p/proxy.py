@@ -1,6 +1,9 @@
-# This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
+# -*- coding: utf-8 -*-
+
+# This source file is part of mc4p,
+# the Minecraft Portable Protocol-Parsing Proxy.
 #
-# Copyright (C) 2011 Matthew J. McGill
+# Copyright (C) 2011 Matthew J. McGill, Simon Marti
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License v2 as published by
@@ -36,7 +39,7 @@ from authentication import Authenticator, minecraft_credentials
 from util import Stream, PartialPacketException, config_logging
 import encryption
 
-logger = logging.getLogger("mc3p")
+logger = logging.getLogger("mc4p")
 rsa_key = None
 auth = None
 check_auth = False

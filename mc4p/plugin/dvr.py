@@ -1,6 +1,9 @@
-# This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
+# -*- coding: utf-8 -*-
+
+# This source file is part of mc4p,
+# the Minecraft Portable Protocol-Parsing Proxy.
 #
-# Copyright (C) 2011 Matthew J. McGill
+# Copyright (C) 2011 Matthew J. McGill, Simon Marti
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License v2 as published by
@@ -17,7 +20,7 @@
 
 """Record and play back server messages.
 
-When run as an mc3p plugin, dvr saves messages from a client or server to a file.
+When run as an mc4p plugin, dvr saves messages from a client or server to a file.
 When run as a stand-alone plugin, dvr replays those saved messages.
 
 Format of a message file:
@@ -27,7 +30,7 @@ Format of a message file:
     <size> := INT
 
 When dvr is run stand-alone, it acts as both the minecraft client and server.
-It listens on a port as the server, and then connects as a client to mc3p.
+It listens on a port as the server, and then connects as a client to mc4p.
 It then replays all recorded messages, from both the client and server.
 
 Command-line arguments:
@@ -40,10 +43,10 @@ FILE
 import socket, asyncore, logging, logging.config, os.path, sys, optparse, time, struct
 
 if __name__ == "__main__":
-    mc3p_dir = os.path.dirname(os.path.abspath(os.path.join(__file__,'..')))
-    sys.path.append(mc3p_dir)
+    mc4p_dir = os.path.dirname(os.path.abspath(os.path.join(__file__,'..')))
+    sys.path.append(mc4p_dir)
 
-from mc3p.plugins import PluginError, MC3Plugin
+from mc4p.plugins import PluginError, MC4Plugin
 
 logger = logging.getLogger('plugin.dvr')
 
@@ -53,7 +56,7 @@ class DVROptParser(optparse.OptionParser):
     def error(self, msg):
         raise PluginError(msg)
 
-class DVRPlugin(MC3Plugin):
+class DVRPlugin(MC4Plugin):
 
     def init(self, args):
         self.cli_msgs = set()
@@ -244,7 +247,7 @@ def playback():
         print "Could not open %s: %s" % (opts.cli_msgfile, str(e))
         sys.exit(1)
     # Start client.
-    (cli_host, cli_port) = parse_addr(opts.mc3p_addr)
+    (cli_host, cli_port) = parse_addr(opts.mc4p_addr)
     client = MockClient(cli_host, cli_port, cli_msgfile, opts.timescale)
     print "Started client."
 
@@ -299,9 +302,9 @@ def make_arg_parser():
     parser = optparse.OptionParser(
         usage="usage: %prog [--to [HOST:]PORT] [--via [HOST:]PORT] " +\
               "[-x FACTOR] CAPFILE")
-    parser.add_option('--via', dest='mc3p_addr',
+    parser.add_option('--via', dest='mc4p_addr',
                       type='string', metavar='[HOST:]PORT',
-                      help='mc3p address', default='localhost:34343')
+                      help='mc4p address', default='localhost:34343')
     parser.add_option('--to', dest='srv_addr', type='string',
                       metavar='[HOST:]PORT', help='server address',
                       default='localhost:25565')
@@ -314,7 +317,7 @@ def make_arg_parser():
     return parser
 
 if __name__ == "__main__":
-    logcfg = os.path.join(mc3p_dir,'logging.conf')
+    logcfg = os.path.join(mc4p_dir,'logging.conf')
     if os.path.exists(logcfg) and os.path.isfile(logcfg):
         logging.config.fileConfig(logcfg)
     else:

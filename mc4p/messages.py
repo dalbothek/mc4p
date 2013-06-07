@@ -1,6 +1,9 @@
-# This source file is part of mc3p, the Minecraft Protocol Parsing Proxy.
+# -*- coding: utf-8 -*-
+
+# This source file is part of mc4p,
+# the Minecraft Portable Protocol-Parsing Proxy.
 #
-# Copyright (C) 2011 Matthew J. McGill
+# Copyright (C) 2011 Matthew J. McGill, Simon Marti
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License v2 as published by
@@ -899,5 +902,5 @@ srv_msgs[0xd1] = defconditionalmsg(0xd1, "Teams", [
 protocol[60] = protocol[59] = protocol[58] = protocol[57] = protocol[56]
 
 
-### VERSION 60 - Corresponds to 1.5.2
+### VERSION 61 - Corresponds to 1.5.2
 protocol[61] = protocol[60]
