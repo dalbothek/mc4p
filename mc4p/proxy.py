@@ -149,8 +149,11 @@ def generate_rsa_key_pair():
 
 
 class UnsupportedPacketException(Exception):
-    def __init__(self,pid):
-        Exception.__init__(self,"Unsupported packet id 0x%x" % pid)
+    def __init__(self, id_):
+        super(UnsupportedPacketException, self).__init__(
+            "Unsupported packet id 0x%x" % id_
+        )
+        self.id_ = id_
 
 
 class EOFException(Exception):

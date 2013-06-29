@@ -27,7 +27,7 @@ from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
                      MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
                      MC_blob, MC_chunks, MC_chunks2, MC_tile_entity,
                      MC_item_data2, MC_metadata2, defconditionalmsg,
-                     MC_player_list)
+                     MC_player_list, MC_entity_properties)
 
 protocol = {}
 
@@ -42,6 +42,11 @@ cli_msgs[0x02] = defhandshakemsg([
     ('username',MC_string),
     ('host',MC_string),
     ('port',MC_int)])
+
+cli_msgs[0xfa] = \
+srv_msgs[0xfa] = defmsg(0xfa, "Plugin message", [
+    ('channel', MC_string),
+    ('data', MC_string8)])
 
 cli_msgs[0xfe] = defmsg(0xfe, "Server List Ping", [])
 
@@ -478,11 +483,6 @@ cli_msgs[0xcc] = defmsg(0xcc, "Settings", [
     ('chat_flags', MC_byte),
     ('unknown', MC_byte)])
 
-cli_msgs[0xfa] = \
-srv_msgs[0xfa] = defmsg(0xfa, "Plugin message", [
-    ('channel', MC_string),
-    ('data', MC_string8)])
-
 cli_msgs[0xfc] = \
 srv_msgs[0xfc] = defmsg(0xfc, "Encryption Key Response", [
     ('shared_secret', MC_blob)])
@@ -904,3 +904,57 @@ protocol[60] = protocol[59] = protocol[58] = protocol[57] = protocol[56]
 
 ### VERSION 61 - Corresponds to 1.5.2
 protocol[61] = protocol[60]
+
+
+### VERSION 72 - Corresponds to 1.6
+protocol[72] = protocol[61]
+cli_msgs, srv_msgs = protocol[72]
+
+srv_msgs[0x08] = defmsg(0x08, "Update health", [
+    ('health', MC_float),
+    ('food', MC_short),
+    ('food_saturation', MC_float)])
+
+cli_msgs[0x13] = \
+srv_msgs[0x13] = defmsg(0x13, "Entity action", [
+    ('eid', MC_int),
+    ('action', MC_byte),
+    ('un', MC_int)])
+
+cli_msgs[0x1b]  = defmsg(0x1b, "Steer vehicle", [
+    ('sideways', MC_float),
+    ('forward', MC_float),
+    ('jump', MC_bool),
+    ('unmount', MC_bool)])
+
+cli_msgs[0x27] = \
+srv_msgs[0x27] = defmsg(0x27, "Attach entity", [
+    ('eid', MC_int),
+    ('vehicle_id', MC_int),
+    ('leash', MC_bool)])
+
+srv_msgs[0x2c] = defmsg(0x2c, "Entity Properties", [
+    ('eid', MC_int),
+    ('properties', MC_entity_properties)])
+
+srv_msgs[0x64] = defconditionalmsg(0x64, "Open window", [
+    ('window_id', MC_byte),
+    ('inv_type', MC_byte),
+    ('window_title', MC_string),
+    ('num_slots', MC_byte),
+    ('custom_title', MC_byte),
+    ('un', MC_int, lambda msg: msg['inv_type'] == 11)])
+
+srv_msgs[0xc8] = defmsg(0xc8, "Increment statistic", [
+    ('stat_id', MC_int),
+    ('amount', MC_int)])
+
+cli_msgs[0xca] = \
+srv_msgs[0xca] = defmsg(0xca, "Abilities", [
+    ('abilities', MC_byte),
+    ('flying_speed', MC_float),
+    ('walking_speed', MC_float)])
+
+
+### VERSION 73 - Corresponds to 1.6.1
+protocol[73] = protocol[72]

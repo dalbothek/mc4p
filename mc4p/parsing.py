@@ -108,7 +108,7 @@ def defhandshakemsg(tuples):
         return ''.join([emit_unsigned_byte(0x02),
                         emit_byte(msg['proto_version']),
                         ''.join([parsem.emit(msg[name]) for (name,parsem) in pairs])])
-    return Parsem(parse, emit)
+    return Parsem(parse, emit, "Handshake")
 
 MC_byte = Parsem(parse_byte,emit_byte)
 
@@ -585,3 +585,17 @@ def emit_player_list(data):
             ''.join(emit_string(player) for player in data))
 
 MC_player_list = Parsem(parse_player_list, emit_player_list)
+
+
+def parse_entity_properties(stream):
+    length = parse_int(stream)
+    return dict((parse_string(stream), parse_double(stream))
+                for i in range(length))
+
+
+def emit_entity_properties(data):
+    return (emit_int(len(data)) +
+            ''.join(emit_string(key) + emit_double(value)
+                    for key, value in data.iteritems()))
+
+MC_entity_properties = Parsem(parse_entity_properties, emit_entity_properties)
