@@ -962,7 +962,7 @@ protocol[73] = protocol[72]
 
 
 ### VERSION 74 - Corresponds to 1.6.2
-protocol[74] = protocol[73]
+protocol[74] = tuple(map(list, protocol[73]))
 cli_msgs, srv_msgs = protocol[74]
 
 srv_msgs[0x2c] = defmsg(0x2c, "Entity Properties", [
