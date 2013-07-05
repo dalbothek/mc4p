@@ -27,7 +27,8 @@ from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
                      MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
                      MC_blob, MC_chunks, MC_chunks2, MC_tile_entity,
                      MC_item_data2, MC_metadata2, defconditionalmsg,
-                     MC_player_list, MC_entity_properties)
+                     MC_player_list, MC_entity_properties,
+                     MC_entity_properties2)
 
 protocol = {}
 
@@ -958,3 +959,18 @@ srv_msgs[0xca] = defmsg(0xca, "Abilities", [
 
 ### VERSION 73 - Corresponds to 1.6.1
 protocol[73] = protocol[72]
+
+
+### VERSION 74 - Corresponds to 1.6.2
+protocol[74] = protocol[73]
+cli_msgs, srv_msgs = protocol[74]
+
+srv_msgs[0x2c] = defmsg(0x2c, "Entity Properties", [
+    ('eid', MC_int),
+    ('properties', MC_entity_properties2)])
+
+srv_msgs[0x85] = defmsg(0x85, "Unknown", [
+    ('un1', MC_byte),
+    ('un2', MC_int),
+    ('un3', MC_int),
+    ('un4', MC_int)])

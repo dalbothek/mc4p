@@ -588,9 +588,8 @@ MC_player_list = Parsem(parse_player_list, emit_player_list)
 
 
 def parse_entity_properties(stream):
-    length = parse_int(stream)
     return dict((parse_string(stream), parse_double(stream))
-                for i in range(length))
+                for i in range(parse_int(stream)))
 
 
 def emit_entity_properties(data):
@@ -599,3 +598,36 @@ def emit_entity_properties(data):
                     for key, value in data.iteritems()))
 
 MC_entity_properties = Parsem(parse_entity_properties, emit_entity_properties)
+
+
+def parse_entity_properties2(stream):
+    return dict((parse_string(stream), {
+        "double": parse_double(stream),
+        "list": [{
+            "most_significant": parse_long(stream),
+            "least_significant": parse_long(stream),
+            "double": parse_double(stream),
+            "byte": parse_byte(stream)
+        } for j in range(parse_short(stream))]
+    }) for i in range(parse_int(stream)))
+
+
+def emit_entity_properties2(data):
+    return emit_int(len(data)) + "".join(
+        "".join((
+            emit_string(key),
+            emit_double(value['double']),
+            emit_short(len(value['list'])),
+            "".join(
+                "".join((
+                    emit_long(entry["most_significant"]),
+                    emit_long(entry["least_significant"]),
+                    emit_double(entry["double"]),
+                    emit_byte(entry["byte"]),
+                )) for entry in value["list"]
+            )
+        )) for key, value in data.iteritems()
+    )
+
+MC_entity_properties2 = Parsem(parse_entity_properties2,
+                               emit_entity_properties2)
