@@ -18,959 +18,643 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from parsing import (defhandshakemsg, defmsg, MC_bool, MC_byte, MC_chunk,
-                     MC_chunk2, MC_double, MC_entity_list, MC_fireball_data,
-                     MC_explosion_records, MC_float, MC_int, MC_inventory,
-                     MC_inventory2, MC_inventory3, MC_item_data, MC_long,
-                     MC_metadata, MC_multi_block_change, MC_slot_update,
-                     MC_multi_block_change2, MC_short, MC_slot_update2,
-                     MC_slot_update3, MC_string, MC_string8, MC_unsigned_byte,
-                     MC_blob, MC_chunks, MC_chunks2, MC_tile_entity,
-                     MC_item_data2, MC_metadata2, defconditionalmsg,
-                     MC_player_list, MC_entity_properties,
-                     MC_entity_properties2)
+from mc4p.parsing import *
 
-protocol = {}
 
-### GENERIC MESSAGES - Independent of protocol version ###
+protocol = Protocol()
 
-protocol[0] = [None] * 256, [None] * 256
-cli_msgs, srv_msgs = protocol[0]
 
-cli_msgs[0x01] = defmsg(0x01, "Magic constant", [])
+### GENERIC MESSAGES - Independent of protocol version
+with protocol.version(0):
+    class MagicConstant(ClientMessage):
+        id = 0x01
 
-cli_msgs[0x02] = defhandshakemsg([
-    ('username',MC_string),
-    ('host',MC_string),
-    ('port',MC_int)])
+    class Handshake(ClientMessage):
+        id = 0x02
+        version = Byte()
+        username = String()
+        host = String()
+        port = Int()
 
-cli_msgs[0xfa] = \
-srv_msgs[0xfa] = defmsg(0xfa, "Plugin message", [
-    ('channel', MC_string),
-    ('data', MC_string8)])
+    class PluginMessage(Message):
+        id = 0xfa
+        channel = String()
+        data = Data(Short())
 
-cli_msgs[0xfe] = defmsg(0xfe, "Server List Ping", [])
+    class ServerListPing(ClientMessage):
+        id = 0xfe
 
-cli_msgs[0xff] = \
-srv_msgs[0xff] = defmsg(0xff, "Disconnect/Kick", [
-    ('reason', MC_string)])
-
-### VERSION 32 - Corresponds to 12w18a
-
-protocol[32] = tuple(map(list, protocol[0]))
-cli_msgs, srv_msgs = protocol[32]
-
-cli_msgs[0x00] = \
-srv_msgs[0x00] = defmsg(0x00,"Keep Alive",[
-    ('id', MC_int)])
-
-cli_msgs[0x01] = defmsg(0x01, "Login packet", [])
-
-srv_msgs[0x01] = defmsg(0x01, "Login packet", [
-    ('eid', MC_int),
-    ('level_type', MC_string),
-    ('server_mode', MC_byte),
-    ('dimension', MC_byte),
-    ('difficulty', MC_byte),
-    ('unused', MC_unsigned_byte),
-    ('max_players', MC_unsigned_byte)])
-
-cli_msgs[0x03] = \
-srv_msgs[0x03] = defmsg(0x03, "Chat",[
-    ('chat_msg',MC_string)])
-
-srv_msgs[0x04] = defmsg(0x04, "Time", [
-    ('time',MC_long)])
-
-cli_msgs[0x05] = \
-srv_msgs[0x05] = defmsg(0x05, "Entity Equipment Spawn",[
-    ('eid',MC_int),
-    ('slot',MC_short),
-    ('item_id',MC_short),
-    ('unknown',MC_short)])
-
-srv_msgs[0x06] = defmsg(0x06, "Spawn position",[
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int)])
-
-cli_msgs[0x07] = defmsg(0x07, "Use entity", [
-    ('eid',MC_int),
-    ('target_eid',MC_int),
-    ('left_click',MC_bool)])
-
-srv_msgs[0x08] = defmsg(0x08, "Update health", [
-    ('health',MC_short),
-    ('food', MC_short),
-    ('food_saturation', MC_float)])
-
-cli_msgs[0x09] = defmsg(0x09, "Respawn", [])
-srv_msgs[0x09] = defmsg(0x09, "Respawn", [
-    ('world', MC_int),
-    ('difficulty', MC_byte),
-    ('mode', MC_byte),
-    ('world_height', MC_short),
-    ('level_type', MC_string)])
-
-cli_msgs[0x0a] = defmsg(0x0a, "Player state", [
-    ('on_ground',MC_bool)])
-
-cli_msgs[0x0b] = \
-srv_msgs[0x0b] = defmsg(0x0b, "Player position", [
-    ('x',MC_double),
-    ('y',MC_double),
-    ('stance',MC_double),
-    ('z',MC_double),
-    ('on_ground',MC_bool)])
-
-cli_msgs[0x0c] = defmsg(0x0c, "Player look", [
-    ('yaw',MC_float),
-    ('pitch',MC_float),
-    ('on_ground',MC_bool)])
-
-# Note the difference in ordering of 'stance'!
-cli_msgs[0x0d] = defmsg(0x0d, "Player position and look",[
-    ('x',MC_double),
-    ('y',MC_double),
-    ('stance',MC_double),
-    ('z',MC_double),
-    ('yaw',MC_float),
-    ('pitch',MC_float),
-    ('on_ground',MC_bool)])
-srv_msgs[0x0d] = defmsg(0x0d, "Player position and look", [
-    ('x',MC_double),
-    ('stance',MC_double),
-    ('y',MC_double),
-    ('z',MC_double),
-    ('yaw',MC_float),
-    ('pitch',MC_float),
-    ('on_ground',MC_bool)])
-
-cli_msgs[0x0e] = \
-srv_msgs[0x0e] = defmsg(0x0e, "Digging", [
-    ('status',MC_byte),
-    ('x',MC_int),
-    ('y',MC_byte),
-    ('z',MC_int),
-    ('face',MC_byte)])
-
-cli_msgs[0x0f] = \
-srv_msgs[0x0f] = defmsg(0x0f, "Block placement", [
-    ('x',MC_int),
-    ('y',MC_byte),
-    ('z',MC_int),
-    ('dir',MC_byte),
-    ('details',MC_slot_update2)])
-
-cli_msgs[0x10] = \
-srv_msgs[0x10] = defmsg(0x10, "Held item selection",[
-    ('slot_id', MC_short)])
-
-srv_msgs[0x11] = defmsg(0x11, "Use bed", [
-    ('eid', MC_int),
-    ('in_bed', MC_bool),
-    ('x', MC_int),
-    ('y', MC_byte),
-    ('z', MC_int)])
-
-cli_msgs[0x12] = \
-srv_msgs[0x12] = defmsg(0x12, "Change animation",[
-    ('eid',MC_int),
-    ('animation',MC_byte)])
-
-cli_msgs[0x13] = \
-srv_msgs[0x13] = defmsg(0x13, "Entity action", [
-    ('eid',MC_int),
-    ('action', MC_byte)])
-
-srv_msgs[0x14] = defmsg(0x14, "Entity spawn", [
-    ('eid', MC_int),
-    ('name', MC_string),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('rotation', MC_byte),
-    ('pitch', MC_byte),
-    ('curr_item', MC_short)])
-
-cli_msgs[0x15] = \
-srv_msgs[0x15] = defmsg(0x15, "Pickup spawn", [
-    ('eid',MC_int),
-    ('item',MC_short),
-    ('count',MC_byte),
-    ('data',MC_short),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('rotation',MC_byte),
-    ('pitch',MC_byte),
-    ('roll',MC_byte)])
-
-srv_msgs[0x16] = defmsg(0x16, "Collect item", [
-    ('item_eid',MC_int),
-    ('collector_eid',MC_int)])
-
-srv_msgs[0x17] = defmsg(0x17, "Add vehicle/object", [
-    ('eid',MC_int),
-    ('type',MC_byte),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('fireball_data',MC_fireball_data)])
-
-srv_msgs[0x18] = defmsg(0x18, "Mob spawn", [
-    ('eid',MC_int),
-    ('mob_type',MC_byte),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('yaw',MC_byte),
-    ('pitch',MC_byte),
-    ('head_yaw',MC_byte),
-    ('metadata',MC_metadata)])
-
-srv_msgs[0x19] = defmsg(0x19, "Painting", [
-    ('eid', MC_int),
-    ('title', MC_string),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('type', MC_int)])
-
-srv_msgs[0x1a] = defmsg(0x1a, "Experience orb", [
-    ('eid', MC_int),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('count', MC_short)])
-
-cli_msgs[0x1c] = \
-srv_msgs[0x1c] = defmsg(0x1c, "Entity velocity", [
-    ('eid',MC_int),
-    ('vel_x',MC_short),
-    ('vel_y',MC_short),
-    ('vel_z',MC_short)])
-
-srv_msgs[0x1d] = defmsg(0x1d, "Destroy entity", [
-    ('eid',MC_int)])
-
-srv_msgs[0x1e] = defmsg(0x1e, "Entity", [
-    ('eid', MC_int)])
-
-srv_msgs[0x1f] = defmsg(0x1f, "Entity relative move", [
-    ('eid',MC_int),
-    ('dx',MC_byte),
-    ('dy',MC_byte),
-    ('dz',MC_byte)])
-
-srv_msgs[0x20] = defmsg(0x20, "Entity look", [
-    ('eid', MC_int),
-    ('yaw', MC_byte),
-    ('pitch', MC_byte)])
-
-srv_msgs[0x21] = defmsg(0x21, "Entity look/relative move", [
-    ('eid',MC_int),
-    ('dx',MC_byte),
-    ('dy',MC_byte),
-    ('dz',MC_byte),
-    ('yaw',MC_byte),
-    ('pitch',MC_byte)])
-
-srv_msgs[0x22] = defmsg(0x22, "Entity teleport", [
-    ('eid', MC_int),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('yaw', MC_byte),
-    ('pitch', MC_byte)])
-
-srv_msgs[0x23] = defmsg(0x23, "Entity head look", [
-    ('eid',MC_int),
-    ('head_yaw',MC_byte)])
-
-srv_msgs[0x26] = defmsg(0x26, "Entity status", [
-    ('eid',MC_int),
-    ('status',MC_byte)])
-
-cli_msgs[0x27] = \
-srv_msgs[0x27] = defmsg(0x27, "Attach entity", [
-    ('eid',MC_int),
-    ('vehicle_id',MC_int)])
-
-cli_msgs[0x28] = \
-srv_msgs[0x28] = defmsg(0x28, "Entity metadata", [
-    ('eid',MC_int),
-    ('metadata',MC_metadata)])
-
-cli_msgs[0x29] = \
-srv_msgs[0x29] = defmsg(0x29, "Entity Effect", [
-    ('eid', MC_int),
-    ('effect_id', MC_byte),
-    ('amplifier', MC_byte),
-    ('duration', MC_short)])
-
-cli_msgs[0x2a] = \
-srv_msgs[0x2a] = defmsg(0x2a, "Remove entity effect", [
-    ('eid', MC_int),
-    ('effect_id', MC_byte)])
-
-srv_msgs[0x2b] = defmsg(0x2b, "Experience", [
-    ('curr_exp', MC_float),
-    ('level', MC_short),
-    ('tot_exp', MC_short)])
-
-srv_msgs[0x32] = defmsg(0x32, "Pre-chunk", [
-    ('x',MC_int),
-    ('z',MC_int),
-    ('mode',MC_bool)])
-
-srv_msgs[0x33] = defmsg(0x33, "Chunk", [
-    ('x',MC_int),
-    ('z',MC_int),
-    ('continuous',MC_bool),
-    ('chunk_bitmap',MC_short),
-    ('add_bitmap',MC_short),
-    ('chunk',MC_chunk2)])
-
-srv_msgs[0x34] = defmsg(0x34, "Multi-block change", [
-    ('chunk_x',MC_int),
-    ('chunk_z',MC_int),
-    ('block_count',MC_short),
-    ('changes',MC_multi_block_change2)])
-
-cli_msgs[0x35] = \
-srv_msgs[0x35] = defmsg(0x35, "Block change", [
-    ('x',MC_int),
-    ('y',MC_byte),
-    ('z',MC_int),
-    ('block_type',MC_byte),
-    ('block_metadata',MC_byte)])
-
-srv_msgs[0x36] = defmsg(0x36, "Play note block",[
-    ('x', MC_int),
-    ('y', MC_short),
-    ('z', MC_int),
-    ('instrument_type', MC_byte),
-    ('pitch', MC_byte)])
-
-srv_msgs[0x3c] = defmsg(0x3c, "Explosion", [
-    ('x', MC_double),
-    ('y', MC_double),
-    ('z', MC_double),
-    ('unknown', MC_float),
-    ('records', MC_explosion_records)])
-
-srv_msgs[0x3d] = defmsg(0x3d, "Sound effect", [
-    ('effect_id', MC_int),
-    ('x', MC_int),
-    ('y', MC_byte),
-    ('z', MC_int),
-    ('data', MC_int)])
-
-srv_msgs[0x3e] = defmsg(0x3e, "Named Sound Effect", [
-    ('sound_name', MC_string),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('volume', MC_byte),
-    ('pitch', MC_byte)])
-
-cli_msgs[0x46] = \
-srv_msgs[0x46] = defmsg(0x46, "New/Invalid State", [
-    ('reason', MC_byte),
-    ('game_mode', MC_byte)])
-
-srv_msgs[0x47] = defmsg(0x47, "Weather", [
-    ('eid', MC_int),
-    ('raining', MC_bool),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int)])
-
-srv_msgs[0x64] = defmsg(0x64, "Open window", [
-    ('window_id', MC_byte),
-    ('inv_type', MC_byte),
-    ('window_title', MC_string),
-    ('num_slots', MC_byte)])
-
-cli_msgs[0x65] = \
-srv_msgs[0x65] = defmsg(0x65, "Close window", [
-    ('window_id', MC_byte)])
-
-cli_msgs[0x66] = defmsg(0x66, "Window click", [
-    ('window_id', MC_byte),
-    ('slot', MC_short),
-    ('is_right_click', MC_bool),
-    ('action_num', MC_short),
-    ('shift', MC_bool),
-    ('details', MC_slot_update2)])
-
-srv_msgs[0x67] = defmsg(0x67, "Set slot", [
-    ('window_id',MC_byte),
-    ('slot',MC_short),
-    ('slot_update',MC_slot_update2)])
-
-srv_msgs[0x68] = defmsg(0x68, "Window items", [
-    ('window_id',MC_byte),
-    ('inventory',MC_inventory2)])
-
-srv_msgs[0x69] = defmsg(0x69, "Update progress bar", [
-    ('window_id', MC_byte),
-    ('progress_bar',MC_short),
-    ('value',MC_short)])
-
-cli_msgs[0x6a] = \
-srv_msgs[0x6a] = defmsg(0x6a, "Transaction", [
-    ('window_id', MC_byte),
-    ('action_num', MC_short),
-    ('accepted', MC_bool)])
-
-cli_msgs[0x6b] = \
-srv_msgs[0x6b] = defmsg(0x6b, "Creative inventory action", [
-    ('slot', MC_short),
-    ('details', MC_slot_update2)])
-
-cli_msgs[0x6c] = defmsg(0x6c, "Enchant Item", [
-    ('window_id', MC_byte),
-    ('enchantment', MC_byte)])
-
-cli_msgs[0x82] = \
-srv_msgs[0x82] = defmsg(0x82, "Update sign", [
-    ('x', MC_int),
-    ('y', MC_short),
-    ('z', MC_int),
-    ('text1', MC_string),
-    ('text2', MC_string),
-    ('text3', MC_string),
-    ('text4', MC_string)])
-
-cli_msgs[0x83] = \
-srv_msgs[0x83] = defmsg(0x83, "Item data", [
-    ('item_type', MC_short),
-    ('item_id', MC_short),
-    ('data', MC_item_data)])
-
-srv_msgs[0x84] = defmsg(0x84, "Update tile entity", [
-    ('x',MC_int),
-    ('y',MC_short),
-    ('z',MC_int),
-    ('action',MC_byte),
-    ('custom1',MC_int),
-    ('custom2',MC_int),
-    ('custom3',MC_int)])
-
-srv_msgs[0xc8] = defmsg(0xc8, "Increment statistic", [
-    ('stat_id', MC_int),
-    ('amount', MC_byte)])
-
-srv_msgs[0xc9] = defmsg(0xc9, "Player list item", [
-    ('name', MC_string),
-    ('online', MC_bool),
-    ('ping', MC_short)])
-
-cli_msgs[0xca] = \
-srv_msgs[0xca] = defmsg(0xca, "Abilities", [
-    ('abilities', MC_byte),
-    ('flying_speed', MC_byte),
-    ('walking_speed', MC_byte)])
-
-cli_msgs[0xcb] = \
-srv_msgs[0xcb] = defmsg(0xcb, "Tab completion", [
-    ('text', MC_string)])
-
-cli_msgs[0xcc] = defmsg(0xcc, "Settings", [
-    ('locale', MC_string),
-    ('view_distance', MC_byte),
-    ('chat_flags', MC_byte),
-    ('unknown', MC_byte)])
-
-cli_msgs[0xfc] = \
-srv_msgs[0xfc] = defmsg(0xfc, "Encryption Key Response", [
-    ('shared_secret', MC_blob)])
-
-srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
-    ('server_id', MC_string),
-    ('public_key', MC_blob)])
-
-
-### VERSION 33 - Corresponds to 12w21a
-
-protocol[33] = tuple(map(list, protocol[32]))
-
-
-### VERSION 34 - Corresponds to 12w22a
-
-protocol[34] = tuple(map(list, protocol[33]))
-cli_msgs, srv_msgs = protocol[34]
-
-cli_msgs[0x0f] = defmsg(0x0f, "Block placement", [
-    ('x',MC_int),
-    ('y',MC_byte),
-    ('z',MC_int),
-    ('dir',MC_byte),
-    ('details',MC_slot_update2),
-    ('block_x', MC_byte),
-    ('block_y', MC_byte),
-    ('block_z', MC_byte)])
-
-
-### VERSION 35 - Corresponds to 12w23a
-
-protocol[35] = tuple(map(list, protocol[34]))
-cli_msgs, srv_msgs = protocol[35]
-
-srv_msgs[0x05] = defmsg(0x05, "Entity Equipment",[
-    ('eid',MC_int),
-    ('slot',MC_short),
-    ('item',MC_slot_update2)])
-
-srv_msgs[0x37] = defmsg(0x37, "Block Mining",[
-    ('eid',MC_int),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('status',MC_byte)])
-
-
-### VERSION 36 - Corresponds to 12w24a
-
-protocol[36] = tuple(map(list, protocol[35]))
-cli_msgs, srv_msgs = protocol[36]
-
-srv_msgs[0x05] = defmsg(0x05, "Entity Equipment",[
-    ('eid',MC_int),
-    ('slot',MC_short),
-    ('item',MC_slot_update3)])
-
-cli_msgs[0x0f] = defmsg(0x0f, "Block placement", [
-    ('x',MC_int),
-    ('y',MC_byte),
-    ('z',MC_int),
-    ('dir',MC_byte),
-    ('details',MC_slot_update3),
-    ('block_x', MC_byte),
-    ('block_y', MC_byte),
-    ('block_z', MC_byte)])
-
-srv_msgs[0x3c] = defmsg(0x3c, "Explosion", [
-    ('x', MC_double),
-    ('y', MC_double),
-    ('z', MC_double),
-    ('unknown', MC_float),
-    ('records', MC_explosion_records),
-    ('unknown1', MC_float),
-    ('unknown2', MC_float),
-    ('unknown3', MC_float)])
-
-cli_msgs[0x66] = defmsg(0x66, "Window click", [
-    ('window_id', MC_byte),
-    ('slot', MC_short),
-    ('is_right_click', MC_bool),
-    ('action_num', MC_short),
-    ('shift', MC_bool),
-    ('details', MC_slot_update3)])
-
-srv_msgs[0x67] = defmsg(0x67, "Set slot", [
-    ('window_id',MC_byte),
-    ('slot',MC_short),
-    ('slot_update',MC_slot_update3)])
-
-srv_msgs[0x68] = defmsg(0x68, "Window items", [
-    ('window_id',MC_byte),
-    ('inventory',MC_inventory3)])
-
-cli_msgs[0x6b] = \
-srv_msgs[0x6b] = defmsg(0x6b, "Creative inventory action", [
-    ('slot', MC_short),
-    ('details', MC_slot_update3)])
-
-cli_msgs[0xcd] = \
-srv_msgs[0xcd] = defmsg(0xcd, "Respawn", [
-    ('payload', MC_byte)])
-
-
-### VERSION 37 - Corresponds to 12w25a
-
-protocol[37] = tuple(map(list, protocol[36]))
-cli_msgs, srv_msgs = protocol[37]
-
-srv_msgs[0x3e] = defmsg(0x3e, "Named Sound Effect", [
-    ('sound_name', MC_string),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('volume', MC_float),
-    ('pitch', MC_byte)])
-
-cli_msgs[0xfc] = \
-srv_msgs[0xfc] = defmsg(0xfc, "Encryption Key Response", [
-    ('shared_secret', MC_blob),
-    ('challenge_token', MC_blob)])
-
-srv_msgs[0xfd] = defmsg(0xfd, "Encryption Key Request", [
-    ('server_id', MC_string),
-    ('public_key', MC_blob),
-    ('challenge_token', MC_blob)])
-
-
-### VERSION 38 - Corresponds to 12w27a
-
-protocol[38] = tuple(map(list, protocol[37]))
-cli_msgs, srv_msgs = protocol[38]
-
-srv_msgs[0x18] = defmsg(0x18, "Mob spawn", [
-    ('eid',MC_int),
-    ('mob_type',MC_byte),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('yaw',MC_byte),
-    ('pitch',MC_byte),
-    ('head_yaw',MC_byte),
-    ('u1',MC_short),
-    ('u2',MC_short),
-    ('u3',MC_short),
-    ('metadata',MC_metadata)])
-
-srv_msgs[0x1d] = defmsg(0x1d, "Destroy entity", [
-    ('entities',MC_entity_list)])
-
-srv_msgs[0x33] = defmsg(0x33, "Chunk", [
-    ('x',MC_int),
-    ('z',MC_int),
-    ('continuous',MC_bool),
-    ('chunk_bitmap',MC_short),
-    ('add_bitmap',MC_short),
-    ('chunk',MC_chunk)])
-
-srv_msgs[0x36] = defmsg(0x36, "Block Action",[
-    ('x', MC_int),
-    ('y', MC_short),
-    ('z', MC_int),
-    ('instrument_type', MC_byte),
-    ('pitch', MC_byte),
-    ('type', MC_short)])
-
-srv_msgs[0x38] = defmsg(0x38, "Chunk Bulk",[
-    ('chunks', MC_chunks)])
-
-srv_msgs[0x14] = defmsg(0x14, "Entity spawn", [
-    ('eid', MC_int),
-    ('name', MC_string),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('rotation', MC_byte),
-    ('pitch', MC_byte),
-    ('curr_item', MC_short),
-    ('metadata',MC_metadata)])
-
-srv_msgs[0x35] = defmsg(0x35, "Block change", [
-    ('x',MC_int),
-    ('y',MC_byte),
-    ('z',MC_int),
-    ('block_type',MC_short),
-    ('block_metadata',MC_byte)])
-
-
-### VERSION 39 - Corresponds to 12w30c
-
-protocol[39] = tuple(map(list, protocol[38]))
-cli_msgs, srv_msgs = protocol[39]
-
-srv_msgs[0x84] = defmsg(0x84, "Update tile entity", [
-    ('x',MC_int),
-    ('y',MC_short),
-    ('z',MC_int),
-    ('action',MC_byte),
-    ('data',MC_tile_entity)])
-
-
-### VERSION 40 - Corresponds to 12w32a
-
-protocol[40] = tuple(map(list, protocol[39]))
-cli_msgs, srv_msgs = protocol[40]
-
-srv_msgs[0x04] = defmsg(0x04, "Time", [
-    ('time',MC_long),
-    ('day_time',MC_long)])
-
-
-### VERSION 41 - Corresponds to 12w34a
-
-protocol[41] = tuple(map(list, protocol[40]))
-
-
-### VERSION 42 - Corresponds to 12w36a
-
-protocol[42] = tuple(map(list, protocol[41]))
-cli_msgs, srv_msgs = protocol[42]
-
-cli_msgs[0x15] = \
-srv_msgs[0x15] = defmsg(0x15, "Pickup spawn", [
-    ('eid',MC_int),
-    ('item',MC_slot_update3),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('rotation',MC_byte),
-    ('pitch',MC_byte),
-    ('roll',MC_byte)])
-
-
-### VERSION 43 - Corresponds to 12w38a
-
-protocol[43] = tuple(map(list, protocol[42]))
-
-
-### VERSION 44 - Corresponds to 12w40a
-
-protocol[44] = tuple(map(list, protocol[43]))
-cli_msgs, srv_msgs = protocol[44]
-
-cli_msgs[0x66] = defmsg(0x66, "Window click", [
-    ('window_id', MC_byte),
-    ('slot', MC_short),
-    ('is_right_click', MC_byte),
-    ('action_num', MC_short),
-    ('shift', MC_byte),
-    ('details', MC_slot_update3)])
-
-
-### VERSION 46 - Corresponds to 12w41a
-
-protocol[46] = tuple(map(list, protocol[44]))
-cli_msgs, srv_msgs = protocol[46]
-
-cli_msgs[0xcc] = defmsg(0xcc, "Settings", [
-    ('locale', MC_string),
-    ('view_distance', MC_byte),
-    ('chat_flags', MC_byte),
-    ('difficulty', MC_byte),
-    ('show_cape', MC_bool)])
-
-
-### VERSION 47 - Corresponds to 12w42b
-
-protocol[47] = tuple(map(list, protocol[46]))
-cli_msgs, srv_msgs = protocol[47]
-
-srv_msgs[0x3d] = defmsg(0x3d, "Sound effect", [
-    ('effect_id', MC_int),
-    ('x', MC_int),
-    ('y', MC_byte),
-    ('z', MC_int),
-    ('data', MC_int),
-    ('constant_volume', MC_bool)])
-
-
-## Forge support
-cli_msgs[0x01] = srv_msgs[0x01]
-
-
-### VERSION 48 - Corresponds to 1.4.3
-
-protocol[48] = tuple(map(list, protocol[47]))
-cli_msgs, srv_msgs = protocol[48]
-
-srv_msgs[0x14] = defmsg(0x14, "Entity spawn", [
-    ('eid', MC_int),
-    ('name', MC_string),
-    ('x', MC_int),
-    ('y', MC_int),
-    ('z', MC_int),
-    ('rotation', MC_byte),
-    ('pitch', MC_byte),
-    ('curr_item', MC_short),
-    ('metadata',MC_metadata2)])
-
-srv_msgs[0x18] = defmsg(0x18, "Mob spawn", [
-    ('eid',MC_int),
-    ('mob_type',MC_byte),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('yaw',MC_byte),
-    ('pitch',MC_byte),
-    ('head_yaw',MC_byte),
-    ('u1',MC_short),
-    ('u2',MC_short),
-    ('u3',MC_short),
-    ('metadata',MC_metadata2)])
-
-cli_msgs[0x28] = \
-srv_msgs[0x28] = defmsg(0x28, "Entity metadata", [
-    ('eid',MC_int),
-    ('metadata',MC_metadata2)])
-
-
-### VERSION 49 - Corresponds to 1.4.4
-
-protocol[49] = tuple(map(list, protocol[48]))
-cli_msgs, srv_msgs = protocol[49]
-
-cli_msgs[0x83] = \
-srv_msgs[0x83] = defmsg(0x83, "Item data", [
-    ('item_type', MC_short),
-    ('item_id', MC_short),
-    ('data', MC_item_data2)])
-
-
-### VERSION 50 - Corresponds to 12w49a
-
-protocol[50] = tuple(map(list, protocol[49]))
-cli_msgs, srv_msgs = protocol[50]
-
-srv_msgs[0x17] = defmsg(0x17, "Add vehicle/object", [
-    ('eid',MC_int),
-    ('type',MC_byte),
-    ('x',MC_int),
-    ('y',MC_int),
-    ('z',MC_int),
-    ('yaw',MC_byte),
-    ('pitch',MC_byte),
-    ('fireball_data',MC_fireball_data)])
-
-
-### VERSION 51 - Corresponds to 1.4.6
-
-protocol[51] = tuple(map(list, protocol[50]))
-cli_msgs, srv_msgs = protocol[51]
-
-# 0x15 (Spawn Dropped Item) removed
-cli_msgs[0x15] = \
-srv_msgs[0x15] = None
-
-srv_msgs[0x38] = defmsg(0x38, "Chunk Bulk",[
-    ('chunks', MC_chunks2)])
-
-
-### VERSION 52 - Corresponds to 13w01b
-protocol[52] = tuple(map(list, protocol[51]))
-cli_msgs, srv_msgs = protocol[52]
-
-srv_msgs[0x64] = defmsg(0x64, "Open window", [
-    ('window_id', MC_byte),
-    ('inv_type', MC_byte),
-    ('window_title', MC_string),
-    ('num_slots', MC_byte),
-    ('custom_title', MC_byte)])
-
-
-### VERSION 53 - Corresponds to 13w02a
-protocol[53] = protocol[52]
-
-
-### VERSION 54 - Corresponds to 13w03a
-protocol[54] = protocol[53]
-
-
-### VERSION 55 - Corresponds to 13w04a
-protocol[55] = tuple(map(list, protocol[54]))
-cli_msgs, srv_msgs = protocol[55]
-
-srv_msgs[0xce] = defmsg(0xce, "Create Scoreboard", [
-    ('name', MC_string),
-    ('display_text', MC_string),
-    ('remove', MC_byte)])
-
-srv_msgs[0xcf] = defmsg(0xcf, "Update Score", [
-    ('item_name', MC_string),
-    ('remove', MC_byte),
-    ('score_name', MC_string),
-    ('value', MC_int)])
-
-srv_msgs[0xd0] = defmsg(0xd0, "Display Scoreboard", [
-    ('position', MC_byte),
-    ('score_name', MC_string)])
-
-
-### VERSION 56 - Corresponds to 13w05a
-protocol[56] = tuple(map(list, protocol[55]))
-cli_msgs, srv_msgs = protocol[56]
-
-srv_msgs[0xd1] = defconditionalmsg(0xd1, "Teams", [
-    ('name', MC_string),
-    ('mode', MC_byte),
-    ('display_name', MC_string, lambda msg: msg['mode'] in (0, 2)),
-    ('prefix', MC_string, lambda msg: msg['mode'] in (0, 2)),
-    ('suffix', MC_string, lambda msg: msg['mode'] in (0, 2)),
-    ('friendly_fire', MC_bool, lambda msg: msg['mode'] in (0, 2)),
-    ('players', MC_player_list, lambda msg: msg['mode'] in (0, 3, 4))])
-
-
-### VERSION 57-60 - Corresponds to 13w05a - 13w09c
-protocol[60] = protocol[59] = protocol[58] = protocol[57] = protocol[56]
+    class Diconnect(Message):
+        id = 0xff
+        reason = String()
 
 
 ### VERSION 61 - Corresponds to 1.5.2
-protocol[61] = protocol[60]
+with protocol.version(61):
+    class KeepAlive(Message):
+        id = 0x00
+        ping_id = Int()
+
+    class Login(Message):
+        id = 0x01
+        eid = Int()
+        level_type = String()
+        game_mode = Byte()
+        dimension = Byte()
+        difficulty = Byte()
+        unused = Byte()
+        max_players = Byte()
+
+    class ChatMessage(Message):
+        id = 0x03
+        message = String()
+
+    class Time(ServerMessage):
+        id = 0x04
+        time = Long()
+        day_time = Long()
+
+    class EntityEquipment(ServerMessage):
+        id = 0x05
+        eid = Int()
+        slot = Short()
+        item = ItemStack()
+
+    class SpawnPosition(ServerMessage):
+        id = 0x06
+        x = Int()
+        y = Int()
+        z = Int()
+
+    class UseEntity(ClientMessage):
+        id = 0x07
+        eid = Int()
+        target_eid = Int()
+        left_click = Bool()
+
+    class UpdateHealth(ServerMessage):
+        id = 0x08
+        health = Short()
+        food = Short()
+        food_saturation = Float()
+
+    class Respawn(Message):
+        id = 0x09
+        world = Int()
+        difficulty = Byte()
+        mode = Byte()
+        world_height = Short()
+        level_type = String()
+
+    class PlayerState(ClientMessage):
+        id = 0x0a
+        on_ground = Bool()
+
+    class PlayerPosition(Message):
+        id = 0x0b
+        x = Double()
+        y = Double()
+        stance = Double()
+        z = Double()
+        on_ground = Bool()
+
+    class PlayerLook(ClientMessage):
+        id = 0x0c
+        yaw = Float()
+        pitch = Float()
+        on_ground = Bool()
+
+    class PlayerPositionAndLook(Message):
+        id = 0x0d
+        x = Double()
+        y = Double()
+        stance = Double()
+        z = Double()
+        yaw = Float()
+        pitch = Float()
+        on_ground = Bool()
+
+    class Digging(Message):
+        id = 0x0e
+        status = Byte()
+        x = Int()
+        y = Byte()
+        z = Int()
+        face = Byte()
+
+    class BlockPlacement(ClientMessage):
+        id = 0x0f
+        x = Int()
+        y = Byte()
+        z = Int()
+        direction = Byte()
+        item = ItemStack()
+        block_x = Byte()
+        block_y = Byte()
+        block_z = Byte()
+
+    class HeldItemSelection(Message):
+        id = 0x10
+        slot = Short()
+
+    class UseBed(ServerMessage):
+        id = 0x11
+        eid = Int()
+        in_bed = Bool()
+        x = Int()
+        y = Byte()
+        z = Int()
+
+    class ChangeAnimation(Message):
+        id = 0x12
+        eid = Int()
+        animation = Byte()
+
+    class EntityAction(Message):
+        id = 0x13
+        eid = Int()
+        action = Byte()
+
+    class EntitySpawn(ServerMessage):
+        id = 0x14
+        eid = Int()
+        name = String()
+        x = Int()
+        y = Int()
+        z = Int()
+        rotation = Byte()
+        pitch = Byte()
+        curr_item = Short()
+
+    class PickupSpawn(Message):
+        id = 0x15
+        eid = Int()
+        item = ItemStack()
+        x = Int()
+        y = Int()
+        z = Int()
+        rotation = Byte()
+        pitch = Byte()
+        roll = Byte()
+
+    class CollectItem(ServerMessage):
+        id = 0x16
+        item_eid = Int()
+        collector_eid = Int()
+
+    class SpawnObject(ServerMessage):
+        id = 0x17
+        eid = Int()
+        type = Byte()
+        x = Int()
+        y = Int()
+        z = Int()
+        pitch = Byte()
+        yaw = Byte()
+        data = Int()
+        speed_x = Conditional(Short(), lambda msg: msg.data > 0)
+        speed_y = Conditional(Short(), lambda msg: msg.data > 0)
+        speed_z = Conditional(Short(), lambda msg: msg.data > 0)
+
+    class MobSpawn(ServerMessage):
+        id = 0x18
+        eid = Int()
+        mob_type = Byte()
+        x = Int()
+        y = Int()
+        z = Int()
+        yaw = Byte()
+        pitch = Byte()
+        head_yaw = Byte()
+        u1 = Short()
+        u2 = Short()
+        u3 = Short()
+        metadata = Metadata()
+
+    class Painting(ServerMessage):
+        id = 0x19
+        eid = Int()
+        title = String()
+        x = Int()
+        y = Int()
+        z = Int()
+        type = Int()
+
+    class ExperienceOrb(ServerMessage):
+        id = 0x1a
+        eid = Int()
+        x = Int()
+        y = Int()
+        z = Int()
+        count = Short()
+
+    class EntityVelocity(Message):
+        id = 0x1c
+        eid = Int()
+        x = Short()
+        y = Short()
+        z = Short()
+
+    class DestroyEntity(ServerMessage):
+        id = 0x1d
+        eids = List(Int(), size=Byte())
+
+    class Entity(ServerMessage):
+        id = 0x1e
+        eid = Int()
+
+    class EntityRelativeMove(ServerMessage):
+        id = 0x1f
+        eid = Int()
+        x = Byte()
+        y = Byte()
+        z = Byte()
+
+    class EntityLook(ServerMessage):
+        id = 0x20
+        eid = Int()
+        yaw = Byte()
+        pitch = Byte()
+
+    class EntityLookAndRelativeMove(ServerMessage):
+        id = 0x21
+        eid = Int()
+        x = Byte()
+        y = Byte()
+        z = Byte()
+        yaw = Byte()
+        pitch = Byte()
+
+    class EntityTeleport(ServerMessage):
+        id = 0x22
+        eid = Int()
+        x = Int()
+        y = Int()
+        z = Int()
+        yaw = Byte()
+        pitch = Byte()
+
+    class EntityHeadLook(ServerMessage):
+        id = 0x23
+        eid = Int()
+        head_yaw = Byte()
+
+    class EntityStatus(ServerMessage):
+        id = 0x26
+        eid = Int()
+        status = Byte()
+
+    class AttachEntity(Message):
+        id = 0x27
+        eid = Int()
+        vehicle_id = Int()
+
+    class EntityMetadata(Message):
+        id = 0x28
+        eid = Int()
+        metadata = Metadata()
+
+    class EntityEffect(Message):
+        id = 0x29
+        eid = Int()
+        effect_id = Byte()
+        amplifier = Byte()
+        duration = Short()
+
+    class RemoveEntityEffect(Message):
+        id = 0x2a
+        eid = Int()
+        effect_id = Byte()
+
+    class Experience(ServerMessage):
+        id = 0x2b
+        curr_exp = Float()
+        level = Short()
+        tot_exp = Short()
+
+    class Chunk(ServerMessage):
+        id = 0x33
+        x = Int()
+        z = Int()
+        continuous = Bool()
+        chunk_bitmap = Short()
+        add_bitmap = Short()
+        data = Data(Int())
+
+    class MultiBlockChange(ServerMessage):
+        id = 0x34
+        chunk_x = Int()
+        chunk_z = Int()
+        block_count = Short()  # This does not get updated automatically
+        changes = Data(Int())
+
+    class BlockChange(ServerMessage):
+        id = 0x35
+        x = Int()
+        y = Byte()
+        z = Int()
+        block_type = Short()
+        block_metadata = Byte()
+
+    class BlockAction(ServerMessage):
+        id = 0x36
+        x = Int()
+        y = Short()
+        z = Int()
+        instrument_type = Byte()
+        pitch = Byte()
+        type = Short()
+
+    class BlockMining(ServerMessage):
+        id = 0x37
+        eid = Int()
+        x = Int()
+        y = Int()
+        z = Int()
+        status = Byte()
+
+    class ChunkBulk(ServerMessage):
+        id = 0x38
+        chunk_count = Short()
+        data_length = Int()
+        sky_light = Bool()
+        data = Data("data_length")
+        metadata = List(Object(
+            x=Int(),
+            z=Int(),
+            chunk_bitmap=Short(),
+            add_bitmap=Short()
+        ), size="chunk_count")
+
+    class Explosion(ServerMessage):
+        id = 0x3c
+        x = Double()
+        y = Double()
+        z = Double()
+        radius = Float()
+        records = List(Object(
+            x=Byte(),
+            y=Byte(),
+            z=Byte()
+        ), size=Int())
+        push_x = Float()
+        push_y = Float()
+        push_z = Float()
+
+    class SoundEffect(ServerMessage):
+        id = 0x3d
+        effect_id = Int()
+        x = Int()
+        y = Byte()
+        z = Int()
+        data = Int()
+        constant_volume = Bool()
+
+    class NamedSoundEffect(ServerMessage):
+        id = 0x3e
+        sound_name = String()
+        x = Int()
+        y = Int()
+        z = Int()
+        volume = Float()
+        pitch = Byte()
+
+    class ChangeGameState(Message):
+        id = 0x46
+        reason = Byte()
+        game_mode = Byte()
+
+    class SpawnGlobalEntity(ServerMessage):
+        id = 0x47
+        eid = Int()
+        type = Byte()
+        x = Int()
+        y = Int()
+        z = Int()
+
+    class OpenWindow(ServerMessage):
+        id = 0x64
+        window_id = Byte()
+        type = Byte()
+        title = String()
+        slot_count = Byte()
+        custom_title = Bool()
+
+    class CloseWindow(Message):
+        id = 0x65
+        window_id = Byte()
+
+    class WindowClick(ClientMessage):
+        id = 0x66
+        window_id = Byte()
+        slot = Short()
+        right_click = Byte()
+        action_id = Short()
+        shift = Byte()
+        details = ItemStack()
+
+    class SetSlot(ServerMessage):
+        id = 0x67
+        window_id = Byte()
+        slot = Short()
+        item = ItemStack()
+
+    class WindowItems(ServerMessage):
+        id = 0x68
+        window_id = Byte()
+        items = List(ItemStack(), Short())
+
+    class UpdateProgressBar(ServerMessage):
+        id = 0x69
+        window_id = Byte()
+        progress_bar = Short()
+        value = Short()
+
+    class Transaction(Message):
+        id = 0x6a
+        window_id = Byte()
+        action_id = Short()
+        accepted = Bool()
+
+    class CreativeInventoryAction(Message):
+        id = 0x6b
+        slot = Short()
+        details = ItemStack()
+
+    class EnchantItem(ClientMessage):
+        id = 0x6c
+        window_id = Byte()
+        enchantment = Byte()
+
+    class UpdateSign(Message):
+        id = 0x82
+        x = Int()
+        y = Short()
+        z = Int()
+        text1 = String()
+        text2 = String()
+        text3 = String()
+        text4 = String()
+
+    class ItemData(Message):
+        id = 0x83
+        item_type = Short()
+        item_id = Short()
+        data = Data(Short())
+
+    class UpdateTileEntity(ServerMessage):
+        id = 0x84
+        x = Int()
+        y = Short()
+        z = Int()
+        action = Byte()
+        data = Data(Short())
+
+    class IncrementStatistic(ServerMessage):
+        id = 0xc8
+        stat_id = Int()
+        amount = Byte()
+
+    class PlayerListItem(ServerMessage):
+        id = 0xc9
+        name = String()
+        online = Bool()
+        ping = Short()
+
+    class Abilities(Message):
+        id = 0xca
+        abilities = Byte()
+        flying_speed = Byte()
+        walking_speed = Byte()
+
+    class TabCompletion(Message):
+        id = 0xcb
+        text = String()
+
+    class Settings(ClientMessage):
+        id = 0xcc
+        locale = String()
+        view_distance = Byte()
+        chat_flags = Byte()
+        difficulty = Byte()
+        show_cape = Bool()
+
+    class ClientStatus(Message):
+        id = 0xcd
+        payload = Byte()
+
+    class CreateScoreboard(ServerMessage):
+        id = 0xce
+        name = String()
+        display_text = String()
+        remove = Byte()
+
+    class UpdateScore(ServerMessage):
+        id = 0xcf
+        item_name = String()
+        remove = Byte()
+        score_name = String()
+        value = Int()
+
+    class DisplayScoreboard(ServerMessage):
+        id = 0xd0
+        position = Byte()
+        score_name = String()
+
+    class Teams(ServerMessage):
+        id = 0xd1
+        name = String()
+        mode = Byte()
+        display_name = Conditional(String(), lambda msg: msg.mode in (0, 2))
+        prefix = Conditional(String(), lambda msg: msg.mode in (0, 2))
+        suffix = Conditional(String(), lambda msg: msg.mode in (0, 2))
+        friendly_fire = Conditional(Bool(), lambda msg: msg.mode in (0, 2))
+        players = Conditional(List(String(), size=Short()),
+                              lambda msg: msg.mode in (0, 3, 4))
+
+    class EncryptionKeyResponse(Message):
+        id = 0xfc
+        shared_secret = Data(Short())
+        challenge_token = Data(Short())
+
+    class EncryptionKeyRequest(ServerMessage):
+        id = 0xfd
+        server_id = String()
+        public_key = Data(Short())
+        challenge_token = Data(Short())
 
 
 ### VERSION 72 - Corresponds to 1.6
-protocol[72] = protocol[61]
-cli_msgs, srv_msgs = protocol[72]
+with protocol.version(72):
+    class UpdateHealth(ServerMessage):
+        id = 0x08
+        health = Float()
+        food = Short()
+        food_saturation = Float()
 
-srv_msgs[0x08] = defmsg(0x08, "Update health", [
-    ('health', MC_float),
-    ('food', MC_short),
-    ('food_saturation', MC_float)])
+    class EntityAction(Message):
+        id = 0x13
+        eid = Int()
+        action = Byte()
+        unknown = Int()
 
-cli_msgs[0x13] = \
-srv_msgs[0x13] = defmsg(0x13, "Entity action", [
-    ('eid', MC_int),
-    ('action', MC_byte),
-    ('un', MC_int)])
+    class SteerVehicle(Message):
+        id = 0x1b
+        sideways = Float()
+        forward = Float()
+        jump = Bool()
+        unmount = Bool()
 
-cli_msgs[0x1b]  = defmsg(0x1b, "Steer vehicle", [
-    ('sideways', MC_float),
-    ('forward', MC_float),
-    ('jump', MC_bool),
-    ('unmount', MC_bool)])
+    class AttachEntity(Message):
+        id = 0x27
+        eid = Int()
+        vehicle_id = Int()
+        leash = Bool()
 
-cli_msgs[0x27] = \
-srv_msgs[0x27] = defmsg(0x27, "Attach entity", [
-    ('eid', MC_int),
-    ('vehicle_id', MC_int),
-    ('leash', MC_bool)])
+    class EntityProperties(ServerMessage):
+        id = 0x2c
+        eid = Int()
+        properties = Dict(String(), Double(), size=Int())
 
-srv_msgs[0x2c] = defmsg(0x2c, "Entity Properties", [
-    ('eid', MC_int),
-    ('properties', MC_entity_properties)])
+    class OpenWindow(ServerMessage):
+        id = 0x64
+        window_id = Byte()
+        type = Byte()
+        title = String()
+        slot_count = Byte()
+        custom_title = Byte()
+        eid = Conditional(Int(), lambda msg: msg.type == 11)
 
-srv_msgs[0x64] = defconditionalmsg(0x64, "Open window", [
-    ('window_id', MC_byte),
-    ('inv_type', MC_byte),
-    ('window_title', MC_string),
-    ('num_slots', MC_byte),
-    ('custom_title', MC_byte),
-    ('un', MC_int, lambda msg: msg['inv_type'] == 11)])
+    class IncrementStatistic(ServerMessage):
+        id = 0xc8
+        stat_id = Int()
+        amount = Int()
 
-srv_msgs[0xc8] = defmsg(0xc8, "Increment statistic", [
-    ('stat_id', MC_int),
-    ('amount', MC_int)])
-
-cli_msgs[0xca] = \
-srv_msgs[0xca] = defmsg(0xca, "Abilities", [
-    ('abilities', MC_byte),
-    ('flying_speed', MC_float),
-    ('walking_speed', MC_float)])
-
-
-### VERSION 73 - Corresponds to 1.6.1
-protocol[73] = protocol[72]
+    class Abilities(Message):
+        id = 0xca
+        abilities = Byte()
+        flying_speed = Float()
+        walking_speed = Float()
 
 
 ### VERSION 74 - Corresponds to 1.6.2
-protocol[74] = tuple(map(list, protocol[73]))
-cli_msgs, srv_msgs = protocol[74]
+with protocol.version(74):
+    class EntityProperties(ServerMessage):
+        id = 0x2c
+        eid = Int()
+        properties = Dict(String(), Object(
+            value=Double(),
+            list=List(Object(
+                most_significant=Long(),
+                least_significant=Long(),
+                amount=Double(),
+                operation=Byte()
+            ), size=Short())
+        ), size=Int())
 
-srv_msgs[0x2c] = defmsg(0x2c, "Entity Properties", [
-    ('eid', MC_int),
-    ('properties', MC_entity_properties2)])
-
-srv_msgs[0x85] = defmsg(0x85, "Unknown", [
-    ('un1', MC_byte),
-    ('un2', MC_int),
-    ('un3', MC_int),
-    ('un4', MC_int)])
+    class OpenTileEditor(ServerMessage):
+        id = 0x85
+        unknown = Byte()
+        x = Int()
+        y = Int()
+        z = Int()

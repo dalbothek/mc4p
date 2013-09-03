@@ -25,19 +25,16 @@ import signal
 import sys
 import traceback
 import gevent
-from time import time, sleep
+from time import time
 from optparse import OptionParser
 from getpass import getpass
 from gevent.server import StreamServer
 from gevent.socket import create_connection
 
-import messages
 from plugins import PluginConfig, PluginManager
-from parsing import parse_unsigned_byte
-from util import Stream, PartialPacketException
-from authentication import Authenticator, minecraft_credentials
 from util import Stream, PartialPacketException, config_logging
-import encryption
+from mc4p import encryption, messages, authentication
+
 
 logger = logging.getLogger("mc4p")
 rsa_key = None
@@ -148,14 +145,6 @@ def generate_rsa_key_pair():
     rsa_key = encryption.generate_key_pair()
 
 
-class UnsupportedPacketException(Exception):
-    def __init__(self, id_):
-        super(UnsupportedPacketException, self).__init__(
-            "Unsupported packet id 0x%x" % id_
-        )
-        self.id_ = id_
-
-
 class EOFException(Exception):
     pass
 
@@ -185,14 +174,13 @@ class MinecraftProxy(gevent.Greenlet):
         self.challenge_token = None
         self.send_cipher = None
         self.recv_cipher = None
-        if other_side == None:
+        self.protocol = messages.protocol[0]
+        if other_side is None:
             self.side = 'client'
-            self.msg_spec = messages.protocol[0][0]
             self.rsa_key = rsa_key
             self.username = None
         else:
             self.side = 'server'
-            self.msg_spec = messages.protocol[0][1]
             self.other_side.other_side = self
             self.shared_secret = encryption.generate_shared_secret()
         self.stream = Stream()
@@ -206,9 +194,11 @@ class MinecraftProxy(gevent.Greenlet):
         t = time()
         if self.last_report + 5 < t and self.stream.tot_bytes > 0:
             self.last_report = t
-            logger.debug("%s: total/wasted bytes is %d/%d (%f wasted)" % (
-                 self.side, self.stream.tot_bytes, self.stream.wasted_bytes,
-                 100 * float(self.stream.wasted_bytes) / self.stream.tot_bytes))
+            logger.debug(
+                "%s: total/wasted bytes is %d/%d (%f wasted)" % (
+                self.side, self.stream.tot_bytes, self.stream.wasted_bytes,
+                100 * float(self.stream.wasted_bytes) / self.stream.tot_bytes)
+            )
         self.stream.append(self.recv(4092))
 
         if self.out_of_sync:
@@ -219,111 +209,108 @@ class MinecraftProxy(gevent.Greenlet):
             return
 
         try:
-            packet = parse_packet(self.stream, self.msg_spec, self.side)
-            while packet != None:
-                rebuild = False
-                if packet['msgtype'] == 0x02 and self.side == 'client':
+            while True:
+                packet = self.protocol.parse_message(self.stream, self.side)
+                if packet.id == 0x02 and self.side == 'client':
                     # Determine which protocol message definitions to use.
-                    proto_version = packet['proto_version']
-                    logger.info('Client requests protocol version %d' % proto_version)
+                    proto_version = packet.version
+                    logger.info('Client requests protocol version %d' %
+                                proto_version)
                     if not proto_version in messages.protocol:
-                        logger.error("Unsupported protocol version %d" % proto_version)
+                        logger.error("Unsupported protocol version %d" %
+                                     proto_version)
                         self.handle_close()
                         return
-                    self.username = packet['username']
-                    self.msg_spec, self.other_side.msg_spec = messages.protocol[proto_version]
-                    self.cipher = encryption.encryption_for_version(proto_version)
-                    self.other_side.cipher = self.cipher
-                elif packet['msgtype'] == 0xfd:
-                    self.rsa_key = encryption.decode_public_key(
-                        packet['public_key']
+                    self.username = packet.username
+                    self.protocol = messages.protocol[proto_version]
+                    self.other_side.protocol = self.protocol
+                    self.cipher = encryption.encryption_for_version(
+                        proto_version
                     )
-                    self.encoded_rsa_key = packet['public_key']
-                    packet['public_key'] = encryption.encode_public_key(
+                    self.other_side.cipher = self.cipher
+                elif packet.id == 0xfd:
+                    self.rsa_key = encryption.decode_public_key(
+                        packet.public_key
+                    )
+                    self.encoded_rsa_key = packet.public_key
+                    packet.public_key = encryption.encode_public_key(
                         self.other_side.rsa_key
                     )
-                    if 'challenge_token' in packet:
-                        self.challenge_token = packet['challenge_token']
-                        self.other_side.challenge_token = self.challenge_token
-                    self.other_side.server_id = packet['server_id']
+                    self.challenge_token = packet.challenge_token
+                    self.other_side.challenge_token = self.challenge_token
+                    self.other_side.server_id = packet.server_id
                     if check_auth:
-                        packet['server_id'] = encryption.generate_server_id()
+                        packet.server_id = encryption.generate_server_id()
                     else:
-                        packet['server_id'] = "-"
-                    self.server_id = packet['server_id']
-                    rebuild = True
-                elif packet['msgtype'] == 0xfc and self.side == 'client':
+                        packet.server_id = "-"
+                    self.server_id = packet.server_id
+                elif packet.id == 0xfc and self.side == 'client':
                     self.shared_secret = encryption.decrypt_shared_secret(
-                        packet['shared_secret'],
+                        packet.shared_secret,
                         self.rsa_key
                     )
                     if (len(self.shared_secret) > 16 and
-                        self.cipher == encryption.RC4):
+                            self.cipher == encryption.RC4):
                         logger.error("Unsupported protocol version")
                         self.handle_close()
                         return
-                    packet['shared_secret'] = encryption.encrypt_shared_secret(
+                    packet.shared_secret = encryption.encrypt_shared_secret(
                         self.other_side.shared_secret,
                         self.other_side.rsa_key
                     )
-                    if 'challenge_token' in packet:
-                        challenge_token = encryption.decrypt_shared_secret(
-                            packet['challenge_token'], self.rsa_key
-                        )
-                        if challenge_token != self.challenge_token:
-                            self.kick("Invalid client reply")
-                            return
-                        packet['challenge_token'] = encryption.encrypt_shared_secret(
-                            self.other_side.challenge_token,
-                            self.other_side.rsa_key
-                        )
+                    challenge_token = encryption.decrypt_shared_secret(
+                        packet.challenge_token, self.rsa_key
+                    )
+                    if challenge_token != self.challenge_token:
+                        self.kick("Invalid client reply")
+                        return
+                    packet.challenge_token = encryption.encrypt_shared_secret(
+                        self.other_side.challenge_token,
+                        self.other_side.rsa_key
+                    )
                     if auth:
                         logger.info("Authenticating on server")
                         auth.join_server(self.server_id,
-                                        self.other_side.shared_secret,
-                                        self.other_side.rsa_key)
+                                         self.other_side.shared_secret,
+                                         self.other_side.rsa_key)
                     if check_auth:
                         logger.info("Checking authenticity")
-                        if not Authenticator.check_player(
+                        if not authentication.Authenticator.check_player(
                             self.username, self.other_side.server_id,
-                            self.shared_secret, self.rsa_key):
+                            self.shared_secret, self.rsa_key
+                        ):
                             self.kick("Unable to verify username")
                             return
-                    rebuild = True
-                elif packet['msgtype'] == 0xfc and self.side == 'server':
+                elif packet.id == 0xfc and self.side == 'server':
                     logger.debug("Starting encryption")
                     self.start_cipher()
-                forward = True
+                forwarding = True
                 if self.plugin_mgr:
                     forwarding = self.plugin_mgr.filter(packet, self.side)
-                    if forwarding and packet.modified:
-                        rebuild = True
-                if rebuild:
-                    packet['raw_bytes'] = self.msg_spec[packet['msgtype']].emit(packet)
                 if forwarding and self.other_side is not None:
-                    self.other_side.send(packet['raw_bytes'])
-                if packet['msgtype'] == 0xfc and self.side == 'server':
+                    self.other_side.send(packet.emit())
+                if packet.id == 0xfc and self.side == 'server':
                     self.other_side.start_cipher()
                 # Since we know we're at a message boundary, we can inject
                 # any messages in the queue.
-                msgbytes = self.plugin_mgr.next_injected_msg_from(self.side)
-                while self.other_side and msgbytes is not None:
-                    self.other_side.send(msgbytes)
-                    msgbytes = self.plugin_mgr.next_injected_msg_from(self.side)
+                while self.other_side:
+                    msg = self.plugin_mgr.next_injected_msg_from(self.side)
+                    if msg is None:
+                        break
+                    self.other_side.send(msg.emit())
 
-                # Attempt to parse the next packet.
-                packet = parse_packet(self.stream,self.msg_spec, self.side)
         except PartialPacketException:
-            pass # Not all data for the current packet is available.
+            pass  # Not all data for the current packet is available.
         except Exception:
-            logger.error("MinecraftProxy for %s caught exception, out of sync" % self.side)
+            logger.error("MinecraftProxy for %s caught exception, out of sync"
+                         % self.side)
             logger.error(traceback.format_exc())
             logger.debug("Current stream buffer: %s" % repr(self.stream.buf))
             self.out_of_sync = True
             self.stream.reset()
 
     def kick(self, reason):
-        self.send(self.msg_spec[0xff].emit({'reason': reason}))
+        self.send(self.protocol[0xff](reason=reason).emit())
         self.handle_close()
 
     def handle_close(self):
@@ -369,28 +356,6 @@ class MinecraftProxy(gevent.Greenlet):
         self.close()
         self.handle_close()
 
-class Message(dict):
-    def __init__(self, d):
-        super(Message, self).__init__(d)
-        self.modified = False
-
-    def __setitem__(self, key, val):
-        if key in self and self[key] != val:
-            self.modified = True
-        return super(Message, self).__setitem__(key, val)
-
-def parse_packet(stream, msg_spec, side):
-    """Parse a single packet out of stream, and return it."""
-    # read Packet ID
-    msgtype = parse_unsigned_byte(stream)
-    if not msg_spec[msgtype]:
-        raise UnsupportedPacketException(msgtype)
-    logger.debug("%s trying to parse message type %x" % (side, msgtype))
-    msg_parser = msg_spec[msgtype]
-    msg = msg_parser.parse(stream)
-    msg['raw_bytes'] = stream.packet_finished()
-    return Message(msg)
-
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.ERROR)
@@ -405,21 +370,20 @@ if __name__ == "__main__":
     if opts.user:
         while True:
             password = getpass("Minecraft account password: ")
-            auth = Authenticator(opts.user, password)
+            auth = authentication.YggdrasilAuthenticator(opts.user, password)
             logger.debug("Authenticating with %s" % opts.user)
-            if auth.check():
+            if auth.valid():
                 break
             logger.error("Authentication failed")
         logger.debug("Credentials are valid")
 
     if opts.authenticate or opts.password_file:
         if opts.authenticate:
-            credentials = minecraft_credentials()
-            if credentials is None:
-                logger.error("Can't find password file. " +
+            auth = authentication.AuthenticatorFactory()
+            if auth is None or not auth.valid():
+                logger.error("Can't find valid authentication credentials. " +
                              "Use --user or --password-file option instead.")
                 sys.exit(1)
-            user, password = credentials
         else:
             try:
                 with open(opts.password_file) as f:
@@ -432,12 +396,12 @@ if __name__ == "__main__":
                 sys.exit(1)
             user = credentials[:credentials.find(':')]
             password = credentials[len(user)+1:]
-        auth = Authenticator(user, password)
-        logger.debug("Authenticating with %s" % user)
-        if not auth.check():
+            auth = authentication.YggdrasilAuthenticator(user, password)
+        logger.debug("Authenticating with %s" % auth.username)
+        if not auth.valid():
             logger.error("Authentication failed")
             sys.exit(1)
-        logger.debug("Credentials are valid")
+        logger.debug("Authentication was successful")
 
     if opts.check_auth:
         check_auth = True

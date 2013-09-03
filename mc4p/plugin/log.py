@@ -23,40 +23,10 @@
 
 
 from mc4p.plugins import MC4Plugin
-from mc4p.messages import cli_msgs, srv_msgs
 
-IGNORE = ['mgstype']
-SHORTEN = ['chunk', 'chunks', 'raw_bytes']
 
 class LogPlugin(MC4Plugin):
     def default_handler(self, msg, source):
-        line = []
-        msgs = srv_msgs # TODO
-
-        if source == 'server':
-            line.append('Server -> Client')
-            msgs = srv_msgs
-        elif source == 'client':
-            line.append('Client -> Server')
-            msgs = cli_msgs
-        else:
-            line.append('from %s' % source)
-
-        try:
-            parsem = msgs[msg['msgtype']]
-            name = parsem.name
-        except ValueError:
-            name = 'Unknown'
-
-        line.append('0x%.2x (%s)' % (msg['msgtype'], name))
-        line.append('%d bytes' % len(msg['raw_bytes']))
-        print ' '.join(line)
-        for key, value in msg.iteritems():
-            if key not in IGNORE:
-                if key in SHORTEN:
-                    print '    %s: ...' % key
-                else:
-                    print '    %s: %r' % (key, value)
+        print msg
         print
         return True
-

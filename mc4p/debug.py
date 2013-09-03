@@ -582,6 +582,7 @@ class StringSocket(object):
 
 
 if __name__ == "__main__":
+    raise NotImplementedError
     (port, opts) = parse_args()
 
     try:

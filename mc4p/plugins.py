@@ -123,15 +123,8 @@ class PluginManager(object):
         # Map of instance ID to MC4Plugin instance.
         self.__instances = {}
 
-        # True when a successful client-server handshake has completed.
-        self.__session_active = False
-
-        # Holds the protocol version number after successful handshake.
-        self.__proto_version = 0
-
-        # Stores handshake messages before handshake has completed,
-        # so they can be fed to plugins after initialization.
-        self.__msgbuf = []
+        # Holds the active protocol after successful handshake.
+        self.__protocol = messages.protocol[0]
 
         # For asynchronously injecting messages from the client or server.
         self.__from_client_q = multiprocessing.Queue()
@@ -139,6 +132,9 @@ class PluginManager(object):
 
         # Plugin configuration.
         self.__config = config
+
+        self._load_plugins()
+        self._instantiate_all()
 
     def next_injected_msg_from(self, source):
         """Return the Queue containing source's messages to be injected."""
@@ -184,6 +180,11 @@ class PluginManager(object):
             else:
                 self._instantiate_one(id, pname)
 
+    def _update_protocol_version(self, version):
+        self.__protocol = messages.protocol[version]
+        for plugin in self.__instances.itervalues():
+            plugin._set_protocol(self.__protocol)
+
     def _find_plugin_class(self, pname):
         """Return the subclass of MC4Plugin in pmod."""
         pmod = self.__plugins[pname]
@@ -191,13 +192,15 @@ class PluginManager(object):
             c != MC4Plugin and isinstance(c, type) and issubclass(c, MC4Plugin)
         classes = filter(class_check, pmod.__dict__.values())
         if len(classes) == 0:
-            logger.error("Plugin '%s' does not contain " % pname + \
-                         "a subclass of MC4Plugin")
+            logger.error(
+                "Plugin '%s' does not contain a subclass of MC4Plugin" % pname
+            )
             return None
         elif len(classes) > 1:
-            logger.error(("Plugin '%s' contains multiple subclasses " + \
-                          "of MC4Plugin: %s") % \
-                         (pname, ', '.join([c.__name__ for c in classes])))
+            logger.error(
+                "Plugin '%s' contains multiple subclasses of MC4Plugin: %s" %
+                (pname, ', '.join([c.__name__ for c in classes]))
+            )
         else:
             return classes[0]
 
@@ -208,7 +211,7 @@ class PluginManager(object):
             return
         try:
             logger.debug("  Instantiating plugin '%s' as '%s'" % (pname, id))
-            inst = clazz(self.__proto_version,
+            inst = clazz(self.__protocol,
                          self.__from_client_q,
                          self.__from_server_q)
             inst.init(self.__config.argstr[id])
@@ -218,48 +221,33 @@ class PluginManager(object):
 
     def destroy(self):
         """Destroy plugin instances."""
-        if self.__session_active:
-            self.__plugins = {}
-            logger.info("%s destroying plugin instances" % repr(self))
-            for iname in self.__instances:
-                logger.debug("  Destroying '%s'" % iname)
-                try:
-                    self.__instances[iname]._destroy()
-                except:
-                    logger.error(("Error cleaning up instance " + \
-                                  "'%s' of plugin '%s'") % \
-                                 (iname, self.__config.plugin[iname]))
-                    logger.error(traceback.format_exc())
-            self.__instances = {}
+        self.__plugins = {}
+        logger.info("%s destroying plugin instances" % repr(self))
+        for iname in self.__instances:
+            logger.debug("  Destroying '%s'" % iname)
+            try:
+                self.__instances[iname]._destroy()
+            except:
+                logger.error(
+                    "Error cleaning up instance '%s' of plugin '%s'" %
+                    (iname, self.__config.plugin[iname])
+                )
+                logger.error(traceback.format_exc())
+        self.__instances = {}
 
     def filter(self, msg, source):
         """Filter msg through the configured plugins.
 
         Returns True if msg should be forwarded, False otherwise.
         """
-        if self.__session_active:
-            if self.__msgbuf:
-                # Re-play handshake messages to the plugins,
-                # ignoring return values since the messages have
-                # already been sent and so cannot be filtered.
-                for (_msg, _source) in self.__msgbuf:
-                    self._call_plugins(_msg, _source)
-                self.__msgbuf = None
-            return self._call_plugins(msg, source)
-        else:
-            if 0x02 == msg['msgtype']:
-                self.__proto_version = msg['proto_version']
-                logger.debug('PluginManager detected proto version %d' %
-                             self.__proto_version)
-                logger.info('loading plugins')
-                self.__session_active = True
-                self._load_plugins()
-                self._instantiate_all()
-            self.__msgbuf.append((msg, source))
-            return True
+        if 0x02 == msg.id:
+            self._update_protocol_version(msg.version)
+            logger.debug('PluginManager detected proto version %d' %
+                         self.__protocol.version)
+        return self._call_plugins(msg, source)
 
     def _call_plugins(self, msg, source):
-        msgtype = msg['msgtype']
+        msgtype = msg.id
         for id in self.__config.ordering(msgtype):
             inst = self.__instances.get(id, None)
             if inst and not inst.filter(msg, source):
@@ -272,10 +260,6 @@ class PluginManager(object):
 
 class MsgHandlerWrapper(object):
     def __init__(self, msgtypes, method):
-        for msgtype in msgtypes:
-            if None == messages.cli_msgs[msgtype] and \
-               None == messages.srv_msgs[msgtype]:
-                raise PluginError('Unrecognized message type %x' % msgtype)
         self.msgtypes = msgtypes
         self.method = method
 
@@ -292,12 +276,15 @@ def msghdlr(*msgtypes):
 class MC4Plugin(object):
     """Base class for mc4p plugins."""
 
-    def __init__(self, proto_version, from_client, from_server):
-        self.__proto_version = proto_version
+    def __init__(self, protocol, from_client, from_server):
+        self.__protocol = protocol
         self.__to_client = from_server
         self.__to_server = from_client
         self.__hdlrs = {}
         self._collect_msg_hdlrs()
+
+    def _set_protocol(self, protocol):
+        self.__protocol = protocol
 
     def _collect_msg_hdlrs(self):
         wrappers = filter(lambda x: isinstance(x, MsgHandlerWrapper),
@@ -311,11 +298,11 @@ class MC4Plugin(object):
         for msgtype in wrapper.msgtypes:
             if msgtype in self.__hdlrs:
                 othername = self.__hdlrs[msgtype].__name__
-                raise PluginError('Multiple handlers for %x: %s, %s' % \
+                raise PluginError('Multiple handlers for %x: %s, %s' %
                                   (msgtype, othername, name))
             else:
                 self.__hdlrs[msgtype] = hdlr
-                logger.debug('  registered handler %s for %x' \
+                logger.debug('  registered handler %s for %x'
                              % (name, msgtype))
 
     def init(self, args):
@@ -332,43 +319,35 @@ class MC4Plugin(object):
         self.__to_server.close()
         self.destroy()
 
-    def __encode_msg(self, source, msg):
-        cli_msgs, srv_msgs = messages.protocol[self.__proto_version]
-        msg_spec = cli_msgs if source == 'client' else srv_msgs
-
-        if 'msgtype' not in msg:
-            logger.error("Plugin %s tried to send message without msgtype." %\
-                         self.__class__.__name__)
-            logger.debug("  msg: %s" % repr(msg))
-            return None
-        msgtype = msg['msgtype']
-        if not msg_spec[msgtype]:
-            logger.error(("Plugin %s tried to send message with " +\
-                          "unrecognized type %d") %\
-                         (self.__class__.__name__, msgtype))
-            logger.debug("  msg: %s" % repr(msg))
+    def create_packet(self, msg_id, side=None, **fields):
+        if self.__protocol[msg_id] is None:
+            logger.error(("Plugin %s tried to send message with "
+                          "unrecognized type %d") %
+                         (self.__class__.__name__, msg_id))
             return None
         try:
-            msgbytes = msg_spec[msgtype].emit(msg)
+            msg = self.__protocol[msg_id](side=side, **fields)
+            msg.emit()
         except:
-            logger.error("Plugin %s sent invalid message of type %d" % \
-                         (self.__class__.__name__, msgtype))
+            logger.error("Plugin %s sent invalid message of type %d" %
+                         (self.__class__.__name__, msg_id))
             logger.info(traceback.format_exc())
-            logger.debug("  msg: %s" % repr(msg))
+            if msg:
+                logger.debug("  msg: %s" % repr(msg))
             return None
-        return msgbytes
+        return msg
 
-    def to_server(self, msg):
+    def to_server(self, msg, **fields):
         """Send msg to the server asynchronously."""
-        msgbytes = self.__encode_msg('client', msg)
-        if msgbytes:
-            self.__to_server.put(msgbytes)
+        if type(msg) == int:
+            msg = self.create_packet(msg, "client", **fields)
+        self.__to_server.put(msg)
 
-    def to_client(self, msg):
+    def to_client(self, msg, **fields):
         """Send msg to the client asynchronously."""
-        msgbytes = self.__encode_msg('server', msg)
-        if msgbytes:
-            self.__to_client.put(msgbytes)
+        if type(msg) == int:
+            msg = self.create_packet(msg, "server", **fields)
+        self.__to_client.put(msg)
 
     def default_handler(self, msg, source):
         """Default message handler for all message types.
@@ -382,12 +361,12 @@ class MC4Plugin(object):
         Returns True to forward msg on, False to drop it.
         Modifications to msg are passed on to the recipient.
         """
-        msgtype = msg['msgtype']
+        msgtype = msg.id
         try:
             if not self.default_handler(msg, source):
                 return False
         except:
-            logger.error('Error in default handler of plugin %s:\n%s' % \
+            logger.error('Error in default handler of plugin %s:\n%s' %
                          (self.__class__.__name__, traceback.format_exc()))
             return True
 
@@ -398,7 +377,7 @@ class MC4Plugin(object):
                 return True
         except:
             hdlr = self.__hdlrs[msgtype]
-            logger.error('Error in handler %s of plugin %s: %s' % \
+            logger.error('Error in handler %s of plugin %s: %s' %
                          (hdlr.__name__, self.__class__.__name__,
                           traceback.format_exc()))
             return True
