@@ -670,7 +670,7 @@ with protocol.version(75):
         z = Int()
         volume = Float()
         pitch = Byte()
-        unknown = Byte()
+        category = Byte()
 
     class IncrementStatistic(ServerMessage):
         id = 0xc8
