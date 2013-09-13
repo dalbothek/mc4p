@@ -206,7 +206,7 @@ class YggdrasilAuthenticator(Authenticator):
 
     @classmethod
     def _random_token(cls):
-        "".join("%02x" % ord(c) for c in encryption.generate_random_bytes(16))
+        return "".join("%02x" % ord(c) for c in encryption.generate_random_bytes(16))
 
     class YggdrasilException(Exception):
         def __init__(self, r):
