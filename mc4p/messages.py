@@ -420,6 +420,18 @@ with protocol.version(61):
         volume = Float()
         pitch = Byte()
 
+    class ParticleEffect(ServerMessage):
+        id = 0x3f
+        particle_name = String()
+        x = Float()
+        y = Float()
+        z = Float()
+        offset_x = Float()
+        offset_y = Float()
+        offset_z = Float()
+        speed = Float()
+        number = Int()
+
     class ChangeGameState(Message):
         id = 0x46
         reason = Byte()
