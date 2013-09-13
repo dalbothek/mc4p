@@ -121,20 +121,14 @@ class Authenticator(object):
         return "%x" % d
 
 
-class LastLoginAuthenticator(Authenticator):
+class OldLoginAuthenticator(Authenticator):
     LOGIN_URL = 'https://login.minecraft.net'
     VERSION = 1337
     VALID_TIME = 60
 
-    def __init__(self):
-        path = os.path.join(self._minecraft_folder(), "lastlogin")
-        with open(path) as f:
-            ciphertext = f.read()
-        cipher = encryption.PBEWithMD5AndDES('passwordfile')
-        plaintext = cipher.decrypt(ciphertext)
-        user_size = struct.unpack(">h", plaintext[:2])[0]
-        self.username = plaintext[2:user_size + 2]
-        self.password = plaintext[4 + user_size:]
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
 
     def _authenticate(self):
         r = requests.post(self.LOGIN_URL,
@@ -148,6 +142,23 @@ class LastLoginAuthenticator(Authenticator):
         reponse = r.content.split(":")
         self.display_name = reponse[2]
         self.session_id = reponse[3].strip()
+
+    def __repr__(self):
+        return ("OldLoginAuthenticator(user:'%s', player:'%s')" %
+                (self.username, self.display_name))
+
+
+class LastLoginAuthenticator(OldLoginAuthenticator):
+    def __init__(self):
+        path = os.path.join(self._minecraft_folder(), "lastlogin")
+        with open(path) as f:
+            ciphertext = f.read()
+        cipher = encryption.PBEWithMD5AndDES('passwordfile')
+        plaintext = cipher.decrypt(ciphertext)
+        user_size = struct.unpack(">h", plaintext[:2])[0]
+        username = plaintext[2:user_size + 2]
+        password = plaintext[4 + user_size:]
+        super(LastLoginAuthenticator, self).__init__(username, password)
 
     def __repr__(self):
         return ("LastLoginAuthenticator(user:'%s', player:'%s')" %
