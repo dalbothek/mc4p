@@ -185,6 +185,7 @@ with protocol.version(61):
         rotation = Byte()
         pitch = Byte()
         curr_item = Short()
+        metadata = Metadata()
 
     class PickupSpawn(Message):
         id = 0x15
