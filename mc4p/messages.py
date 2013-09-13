@@ -671,3 +671,20 @@ with protocol.version(74):
         x = Int()
         y = Int()
         z = Int()
+
+
+### VERSION 75 - Corresponds to 13w36a
+with protocol.version(75):
+    class NamedSoundEffect(ServerMessage):
+        id = 0x3e
+        sound_name = String()
+        x = Int()
+        y = Int()
+        z = Int()
+        volume = Float()
+        pitch = Byte()
+        category = Byte()
+
+    class IncrementStatistic(ServerMessage):
+        id = 0xc8
+        stats = Dict(String(), Int(),  size=Int())
