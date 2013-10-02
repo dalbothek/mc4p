@@ -566,8 +566,8 @@ with protocol.version(61):
         id = 0xcf
         item_name = String()
         remove = Byte()
-        score_name = String()
-        value = Int()
+        score_name = Conditional(String(), lambda msg: msg.remove != 1)
+        value = Conditional(Int(), lambda msg: msg.remove != 1)
 
     class DisplayScoreboard(ServerMessage):
         id = 0xd0
