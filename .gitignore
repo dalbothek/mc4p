@@ -1,0 +1,9 @@
+*.pyc
+*.swp
+server
+client
+jar
+build
+dist
+*.egg-info
+.DS_Store
