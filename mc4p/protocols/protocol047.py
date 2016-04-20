@@ -63,7 +63,7 @@ with protocol.server_bound.login:
 with protocol.client_bound.login:
     class Disconnect(Packet):
         id = 0x00
-        reason = Json()
+        reason = Chat()
 
     class EncryptionRequest(Packet):
         id = 0x01
@@ -117,9 +117,19 @@ with protocol.client_bound.play:
         id = 0x00
         keep_alive_id = VarInt()
 
+    class JoinGame(Packet):
+        id = 0x01
+        entity_id = Int()
+        gamemode = UnsignedByte()
+        dimension = Byte()
+        difficulty = UnsignedByte()
+        max_players = UnsignedByte()
+        level_type = String()
+        reduced_debug_info = Bool()
+
     class ChatMessage(Packet):
         id = 0x02
-        message = Json()
+        message = Chat()
         position = Byte()
 
     class PlayerPositionAndLook(Packet):
@@ -143,6 +153,14 @@ with protocol.client_bound.play:
         id = 0x26
         data = Data()
 
+    class UpdateSign(Packet):
+        id = 0x33
+        location = Position()
+        line_1 = Chat()
+        line_2 = Chat()
+        line_3 = Chat()
+        line_4 = Chat()
+
     class PlayerAbilities(Packet):
         id = 0x39
         flags = Byte()
@@ -165,7 +183,7 @@ with protocol.client_bound.play:
 
     class Disconnect(Packet):
         id = 0x40
-        reason = Json()
+        reason = Chat()
 
     class SetCompression(Packet):
         id = 0x46

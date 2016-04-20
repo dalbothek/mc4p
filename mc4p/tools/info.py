@@ -31,9 +31,10 @@ logger = logging.getLogger("info")
 _AUTHENTICATOR = None
 
 
-def get_server_info(server, authenticator=None, raise_errors=False):
+def get_server_info(server, authenticator=None, raise_errors=False,
+                    logfile=None):
     if not isinstance(server, ServerInfo):
-        server = ServerInfo(server)
+        server = ServerInfo(server, logfile=logfile)
 
     try:
         _get_server_info(server, authenticator=authenticator)
@@ -151,8 +152,8 @@ class ServerInfo(status.ServerStatus):
         self.software = None
         self.brand = None
 
-    def __str__(self):
-        lines = super(ServerInfo, self).__str__().decode("utf8").split("\n")
+    def __unicode__(self):
+        lines = super(ServerInfo, self).__unicode__().split("\n")
 
         if self.whitelist is not None:
             lines.append("  whitelist: " + self.WHITELIST_MAP[self.whitelist])
@@ -166,7 +167,10 @@ class ServerInfo(status.ServerStatus):
         if self.plugins is not None:
             lines.append("  plugins: " + self.plugins)
 
-        return "\n".join(lines).encode("utf8")
+        return "\n".join(lines)
+
+    def __str__(self):
+        return unicode(self).encode("utf8")
 
 
 if __name__ == "__main__":
@@ -174,6 +178,13 @@ if __name__ == "__main__":
 
     host = "localhost"
     port = 25565
+
+    if "--debug" in sys.argv:
+        ## TODO: Use argparse
+        sys.argv.remove("--debug")
+        logfile = "/tmp/mc4p.log"
+    else:
+        logfile = None
 
     if len(sys.argv) >= 3:
         try:
@@ -185,4 +196,4 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2:
         host = sys.argv[1]
 
-    print(get_server_info((host, port)))
+    print(get_server_info((host, port), logfile=logfile))

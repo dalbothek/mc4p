@@ -113,7 +113,7 @@ class ServerStatus(object):
         else:
             return "Server(%s:%d)" % self.addr
 
-    def __str__(self):
+    def __unicode__(self):
         lines = []
         if self.id is not None:
             lines.append("ServerStatus (id: %d):" % self.id)
@@ -142,7 +142,10 @@ class ServerStatus(object):
         if self.description is not None:
             lines.append("  description: %s" % self.description)
 
-        return "\n".join(lines).encode("utf8")
+        return "\n".join(lines)
+
+    def __str__(self):
+        return unicode(self).encode("utf8")
 
 
 if __name__ == "__main__":

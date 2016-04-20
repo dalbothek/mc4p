@@ -159,7 +159,7 @@ class String(Field):
         return VarInt.emit(len(value)) + value.encode("utf-8")
 
     def format(self, value):
-        return value.encode("utf8")
+        return value
 
 
 class Json(Field):
@@ -170,6 +170,42 @@ class Json(Field):
     @classmethod
     def emit(cls, value, packet=None):
         return String.emit(json.dumps(value), packet)
+
+
+class Chat(Json):
+    @classmethod
+    def format(cls, value):
+        return util.parse_chat(value)
+
+
+class Position(Field):
+    @classmethod
+    def parse(cls, data, packet=None):
+        value = struct.unpack(">Q", data.read_bytes(8).tobytes())[0]
+
+        x = value >> 38
+        if x & 0x2000000:
+            x = x - 0x4000000
+
+        y = value >> 26 & 0xfff
+        if y & 0x800:
+            y = y - 0x4000000
+
+        z = value & 0x4fff
+        if z & 0x2000000:
+            z = z - 0x4000000
+
+        return (x, y, z)
+
+    @classmethod
+    def emit(cls, value, packet=None):
+        x, y, z = value
+        value = ((x & 0x3ffffff) << 38) | ((y & 0xfff) << 26) | (z & 0x3ffffff)
+        return struct.pack(">Q", value)[0]
+
+    @classmethod
+    def format(cls, value):
+        return "x: %d y: %d z: %d" % value
 
 
 class Data(Field):
@@ -196,4 +232,9 @@ class Data(Field):
     def format(self, value):
         if value is None:
             return "None"
-        return "<Data: %d bytes>" % len(value)
+        if len(value) < 100:
+            if hasattr(value, "tobytes"):
+                value = value.tobytes()
+            return "<Data: %s" % " ".join("%02x" % ord(c) for c in value)
+        else:
+            return "<Data: %d bytes>" % len(value)
