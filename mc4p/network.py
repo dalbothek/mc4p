@@ -462,7 +462,7 @@ class Client(Endpoint):
             self._spawned = True
 
     @Endpoint.packet_handler(CLIENT_PROTOCOL.play.KeepAlive)
-    def handle_kee_alive(self, packet):
+    def handle_keep_alive(self, packet):
         self.send(self.output_protocol.play.KeepAlive(
             keep_alive_id=packet.keep_alive_id
         ))
