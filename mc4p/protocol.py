@@ -20,6 +20,7 @@ import collections
 import zlib
 import inspect
 import importlib
+import traceback
 
 from mc4p import parsing
 from mc4p import util
@@ -28,7 +29,7 @@ from mc4p import util
 logger = logging.getLogger("protocol")
 
 
-MAX_PROTOCOL_VERSION = 104
+MAX_PROTOCOL_VERSION = 109
 
 
 class Protocol(object):
@@ -190,6 +191,10 @@ class Packet(object):
     def __init__(self, _data=None, _strict_protocol=True,
                  _ignore_extra_fields=False, **fields):
         self._strict_protocol = _strict_protocol
+        self._invalid = False
+        self._parse_error = False
+        self._parse_traceback = False
+
         if _data:
             self._parsed = False
             self._data = _data
@@ -238,17 +243,30 @@ class Packet(object):
 
     def __setattr__(self, attr, value):
         if attr[0] != "_":
-            self._dirty = True
             if not self._parsed:
                 self._parse()
+            self._dirty = True
         super(Packet, self).__setattr__(attr, value)
 
     def _parse(self):
         # We're setting _parsed prematurely so __getattribute__ and __setattr__
         # won't cause an infinite recursion loop
         self._parsed = True
+
         for name, field in self._fields.iteritems():
-            setattr(self, name, field.parse(self._data, self))
+            try:
+                setattr(self, name, field.parse(self._data, self))
+            except Exception as e:
+                if self._strict_protocol:
+                    raise
+                else:
+                    self._invalid = True
+                    self._parse_error = e
+                    self._parse_traceback = traceback.format_exc()
+            if self._invalid:
+                setattr(self, name, None)
+
+        self._dirty = False
 
     def _encode(self):
         self._data = PacketData(util.CombinedMemoryView(
@@ -263,15 +281,28 @@ class Packet(object):
     def __repr__(self):
         return "<%s Packet>" % self._name
 
+    def __unicode__(self):
+        if not self._parsed:
+            self._parse()
+
+        if self._invalid:
+            return "Invalid %s Packet\n%s" % (self._name,
+                                              self._parse_traceback)
+        else:
+            lines = ["%s Packet" % self._name]
+
+            for name, field in self._fields.iteritems():
+                value = getattr(self, name)
+                if value:
+                    value = field.format(value)
+                lines.append(
+                    "  %s: %s" % (name, value)
+                )
+
+        return "\n".join(lines)
+
     def __str__(self):
-        lines = ["%s Packet" % self._name]
-
-        for name, field in self._fields.iteritems():
-            lines.append(
-                "  %s: %s" % (name, field.format(getattr(self, name)))
-            )
-
-        return "\n".join(lines).encode("utf8")
+        return unicode(self).encode("utf8")
 
     def _show(self):
         print(self)
@@ -338,7 +369,7 @@ class UnknownPacket(Packet):
         else:
             super(UnknownPacket, self).__setattr__(attr, value)
 
-    def __str__(self):
+    def __unicode__(self):
         if self.id is not None:
             return ("Unknown Packet (id: 0x%02x length:%d)" %
                     (self.id, len(self._data)))

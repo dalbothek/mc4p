@@ -14,6 +14,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import traceback
 import logging
 import time
 import sys
@@ -252,6 +253,7 @@ class Endpoint(gevent.Greenlet):
                 if not isinstance(e, gevent.socket.error) or e.errno != 9:
                     self._disconnect_reason = e.message
                     self._disconnect_exception = e
+                    self._disconnect_traceback = traceback.format_exc()
                 break
             gevent.sleep()
         self.close()
@@ -275,7 +277,10 @@ class Endpoint(gevent.Greenlet):
 
 class DisconnectException(Exception):
     def __init__(self, message=None):
-        super(DisconnectException, self).__init__(message.encode("utf8"))
+        if isinstance(message, unicode):
+            message = message.encode("utf8")
+
+        super(DisconnectException, self).__init__(message)
 
 
 class ClientHandler(Endpoint):
@@ -336,18 +341,18 @@ class Client(Endpoint):
         self._waiting_for_join = False
         self._spawned = False
 
-    def log(self, message):
+    def log(self, *message):
         if self._log_file is not None:
-            message = "%.2f - %s\n" % (time.time() - self._start_time, message)
+            message = "%.2f - %s\n" % (time.time() - self._start_time,
+                                       " ".join(map(unicode, message)))
             try:
-                self._log_file.write(message)
+                self._log_file.write(message.encode("utf8"))
             except IOError as e:
                 print("Error while writing log message: %s (message: %s)" %
                       (e, message), file=sys.stdout)
 
     def handle_disconnect(self):
-        self.log("Disconnect")
-        self.log("Reason: %s" % self._disconnect_reason)
+        self.log("Disconnect: %s" % self._disconnect_reason)
         if self._waiting_for_join:
             self.authenticator.joined_server()
         try:
@@ -356,13 +361,10 @@ class Client(Endpoint):
             pass
 
     def handle_packet(self, packet):
-        if packet._name != "Teams":
-            self.log("Received packet")
-            self.log(packet)
+        self.log("<-", packet)
 
     def send(self, packet):
-        self.log("Sending packet")
-        self.log(packet)
+        self.log("->", packet)
         super(Client, self).send(packet)
 
     def wait_for_packet(self, packets, timeout=60):

@@ -42,7 +42,7 @@ with protocol.server_bound.status:
 with protocol.client_bound.status:
     class Response(Packet):
         id = 0x00
-        status = String()
+        status = Json()
 
     class Ping(Packet):
         id = 0x01
@@ -114,9 +114,18 @@ with protocol.client_bound.play:
         id = 0x00
         keep_alive_id = Int()
 
+    class JoinGame(Packet):
+        id = 0x01
+        entity_id = Int()
+        gamemode = UnsignedByte()
+        dimension = Byte()
+        difficulty = UnsignedByte()
+        max_players = UnsignedByte()
+        level_type = String()
+
     class ChatMessage(Packet):
         id = 0x02
-        message = Json()
+        message = Chat()
 
     class PlayerPositionAndLook(Packet):
         id = 0x08
@@ -135,6 +144,16 @@ with protocol.client_bound.play:
         primary_bit_mask = UnsignedShort()
         add_bit_map = UnsignedShort()
         data = Data(Int())
+
+    class UpdateSign(Packet):
+        id = 0x33
+        x = Int()
+        y = Short()
+        z = Int()
+        line_1 = String()
+        line_2 = String()
+        line_3 = String()
+        line_4 = String()
 
     class PlayerAbilities(Packet):
         id = 0x39
@@ -158,7 +177,7 @@ with protocol.client_bound.play:
 
     class Disconnect(Packet):
         id = 0x40
-        reason = Json()
+        reason = Chat()
 
 
 @protocol.packet_handler(protocol.server_bound.handshake.Handshake)

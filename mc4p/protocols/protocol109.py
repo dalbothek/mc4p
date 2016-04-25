@@ -18,7 +18,7 @@ from mc4p.protocol import *
 from mc4p.parsing import *
 
 
-protocol = Protocol(104, incomplete=True)
+protocol = Protocol(109, incomplete=True)
 
 
 with protocol.server_bound.handshake:
@@ -146,7 +146,7 @@ with protocol.client_bound.play:
         id = 0x23
         entity_id = Int()
         gamemode = UnsignedByte()
-        dimension = Byte()
+        dimension = Int()
         difficulty = UnsignedByte()
         max_players = UnsignedByte()
         level_type = String()
