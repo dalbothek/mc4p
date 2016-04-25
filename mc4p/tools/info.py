@@ -46,6 +46,19 @@ def get_server_info(server, authenticator=None, raise_errors=False,
 
     return server
 
+def parse_packet_messages(packets, invalid_responses):
+    message = None
+    if packets:
+        message = " ".join(
+            util.parse_chat(packet.message) for packet in packets
+        )
+
+        for invalid_response in invalid_responses:
+            if invalid_response in message.lower():
+                message = None
+    return(message)
+
+
 
 def _get_server_info(server, authenticator=None):
     """
@@ -84,29 +97,21 @@ def _get_server_info(server, authenticator=None):
     client.wait_for_world_load()
 
     # Wait until after potential welcome messages
-    client.wait_for_multiple(client.input_protocol.play.ChatMessage,
-                             timeout=1)
-
     INVALID_RESPONSES = (
         "you do not have permission",
         "not allowed",
         "<commands.generic.notfound()>"
     )
 
+    packets = client.wait_for_multiple(client.input_protocol.play.ChatMessage,
+                             timeout=1)
+    server.welcome = parse_packet_messages(packets, INVALID_RESPONSES)
+
     server.state = "plugins"
     client.send(client.output_protocol.play.ChatMessage(message="/plugins"))
     packets = client.wait_for_multiple(client.input_protocol.play.ChatMessage,
                                        timeout=0.5)
-    if packets:
-        plugins = " ".join(
-            util.parse_chat(packet.message) for packet in packets
-        )
-
-        for invalid_response in INVALID_RESPONSES:
-            if invalid_response in plugins.lower():
-                break
-        else:
-            server.plugins = plugins
+    server.plugins = parse_packet_messages(packets, INVALID_RESPONSES)
 
     gevent.sleep(5)  # Many servers don't accept commands in quick succession
 
@@ -114,16 +119,14 @@ def _get_server_info(server, authenticator=None):
     client.send(client.output_protocol.play.ChatMessage(message="/version"))
     packets = client.wait_for_multiple(client.input_protocol.play.ChatMessage,
                                        timeout=0.5)
-    if packets:
-        software = " ".join(
-            util.parse_chat(packet.message) for packet in packets
-        )
+    server.software = parse_packet_messages(packets, INVALID_RESPONSES)
 
-        for invalid_response in INVALID_RESPONSES:
-            if invalid_response in software:
-                break
-        else:
-            server.software = software
+    gevent.sleep(1)  # Many servers don't accept commands in quick succession
+    server.state = "help"
+    client.send(client.output_protocol.play.ChatMessage(message="/help"))
+    packets = client.wait_for_multiple(client.input_protocol.play.ChatMessage,
+                                       timeout=0.5)
+    server.help_p1 = parse_packet_messages(packets, INVALID_RESPONSES)
 
 
 def server_info_map(servers, pool_size=10, authenticator=None):
@@ -151,6 +154,8 @@ class ServerInfo(status.ServerStatus):
         self.plugins = None
         self.software = None
         self.brand = None
+        self.welcome = None
+        self.help_p1 = None
 
     def __unicode__(self):
         lines = super(ServerInfo, self).__unicode__().split("\n")
@@ -166,6 +171,12 @@ class ServerInfo(status.ServerStatus):
 
         if self.plugins is not None:
             lines.append("  plugins: " + self.plugins)
+
+        if self.welcome is not None:
+            lines.append("  welcome: " + self.welcome)
+
+        if self.help_p1 is not None:
+            lines.append("  help page 1: " + self.help_p1)
 
         return "\n".join(lines)
 

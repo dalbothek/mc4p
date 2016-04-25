@@ -80,6 +80,7 @@ class ServerStatus(object):
         self.error = None
         self.state = None
         self.logfile = logfile
+        self.plugins_fml = None ### forge plugins are reported in the status call
 
     @classmethod
     def from_status_packet(cls, status_packet):
@@ -97,6 +98,12 @@ class ServerStatus(object):
             if "sample" in status['players']:
                 self.players = [
                     player['name'] for player in status['players']['sample']
+                ]
+
+        if "modinfo" in status:
+            if "modList" in status['modinfo']:
+                self.plugins_fml = [
+                    plugin['modid'] for plugin in status['modinfo']['modList']
                 ]
 
         if "version" in status:
@@ -132,6 +139,11 @@ class ServerStatus(object):
         if self.player_count is not None:
             lines.append("  players: %d/%d" % (
                 self.player_count, self.max_player_count
+            ))
+
+        if self.plugins_fml is not None:
+            lines.append("  forge plugins: %s" % (
+                " ".join(self.plugins_fml)
             ))
 
         if self.version is not None or self.protocol_version is not None:
