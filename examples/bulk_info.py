@@ -83,6 +83,11 @@ def main():
             "plugins",
             "software",
             "brand",
+            "gamemode",
+            "hardcore",
+            "difficulty",
+            "level_type"
+            "signs",
             "state",
             "error"
         ))

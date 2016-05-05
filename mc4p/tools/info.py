@@ -46,6 +46,7 @@ def get_server_info(server, authenticator=None, raise_errors=False,
 
     return server
 
+
 def parse_packet_messages(packets, invalid_responses):
     message = None
     if packets:
@@ -57,7 +58,6 @@ def parse_packet_messages(packets, invalid_responses):
             if invalid_response in message.lower():
                 message = None
     return(message)
-
 
 
 def _get_server_info(server, authenticator=None):
@@ -74,6 +74,27 @@ def _get_server_info(server, authenticator=None):
     def handle_plugin_message(packet):
         if packet.channel == "MC|Brand":
             server.brand = packet.parse_as_string()
+
+    @client.packet_handler(client.input_protocol.play.JoinGame)
+    def handle_join_game(packet):
+        server.gamemode = packet.gamemode & 0x7
+        server.hardcore = packet.gamemode & 0x8 != 0
+        server.difficulty = packet.difficulty
+        server.level_type = packet.level_type
+
+    @client.packet_handler(client.input_protocol.play.UpdateSign)
+    def handle_update_sign(packet):
+        server.signs.append({
+            'x': packet.location[0],
+            'y': packet.location[1],
+            'z': packet.location[2],
+            'lines': [
+                util.parse_chat(packet.line_1),
+                util.parse_chat(packet.line_2),
+                util.parse_chat(packet.line_3),
+                util.parse_chat(packet.line_4)
+            ]
+        })
 
     server.state = "start"
     client.start()
@@ -148,6 +169,20 @@ class ServerInfo(status.ServerStatus):
         None: "unknown"
     }
 
+    DIFFICULTY_MAP = {
+        0: "peaceful",
+        1: "easy",
+        2: "normal",
+        3: "hard"
+    }
+
+    GAMEMODE_MAP = {
+        0: "survival",
+        1: "creative",
+        2: "adventure",
+        3: "spectator"
+    }
+
     def __init__(self, addr, id_=None, logfile=None):
         super(ServerInfo, self).__init__(addr, id_, logfile=logfile)
         self.whitelist = None
@@ -156,27 +191,46 @@ class ServerInfo(status.ServerStatus):
         self.brand = None
         self.welcome = None
         self.help_p1 = None
+        self.gamemode = None
+        self.hardcore = None
+        self.difficulty = None
+        self.level_type = None
+        self.signs = []
 
     def __unicode__(self):
         lines = super(ServerInfo, self).__unicode__().split("\n")
 
-        if self.whitelist is not None:
-            lines.append("  whitelist: " + self.WHITELIST_MAP[self.whitelist])
+        def format_signs(signs):
+            return "".join(
+                "\n    [% 5d, % 3d, % 5d]: %s" %
+                (sign['x'], sign['y'], sign['z'], " ".join(
+                    line.strip() for line in sign['lines']
+                ))
+                for sign in signs
+            )
 
-        if self.software is not None:
-            lines.append("  software version: " + self.software)
+        attrs = [
+            ("whitelist", "whitelist", lambda v: self.WHITELIST_MAP[v]),
+            ("software", "software version"),
+            ("brand",),
+            ("plugins",),
+            ("welcome", "welcome message"),
+            ("help_p1", "help page 1"),
+            ("gamemode", "game mode", lambda v: self.GAMEMODE_MAP[v]),
+            ("hardcore",),
+            ("difficulty", "difficulty", lambda v: self.DIFFICULTY_MAP[v]),
+            ("level_type",),
+            ("signs", "signs", format_signs)
+        ]
 
-        if self.brand is not None:
-            lines.append("  brand: " + self.brand)
+        for attr in attrs:
+            value = getattr(self, attr[0])
+            title = attr[1] if len(attr) > 1 else attr[0]
 
-        if self.plugins is not None:
-            lines.append("  plugins: " + self.plugins)
+            if len(attr) > 2:
+                value = attr[2](value)
 
-        if self.welcome is not None:
-            lines.append("  welcome: " + self.welcome)
-
-        if self.help_p1 is not None:
-            lines.append("  help page 1: " + self.help_p1)
+            lines.append("  %s: %s" % (title, value))
 
         return "\n".join(lines)
 
