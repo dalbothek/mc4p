@@ -14,12 +14,14 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os.path
+from os import path, remove
 
 import logging
 import json
 import sys
 import csv
+from time import sleep, time
+from datetime import datetime
 
 from mc4p.tools import info
 from mc4p import authentication
@@ -30,6 +32,9 @@ def mcorgrow(row):
     id_ = None
     try:
         port = int(row[5])
+    except ValueError:
+        pass
+    try:
         id_ = int(row[0])
     except ValueError:
         pass
@@ -38,6 +43,8 @@ def mcorgrow(row):
 def iprow(row):
     saddr = row[0].lower() ### standardize case
     saddr = saddr.replace('\n', '') #### bc some addresses have a newline for some reason## some
+    if saddr.count(':') > 1: return((False, False, False)) ### this means it's not an IP that I know how to resolve
+
     host = saddr.partition(':')[0]
     port = 25565
     ### if there is no port, or only a default port, 
@@ -48,13 +55,24 @@ def iprow(row):
     if saddr.partition(':')[2] == '' or  saddr.partition(':')[2] == '25565':  
         pass
     else: 
-        port = saddr.partition(':')[2]
+        #print(saddr.partition(':'))
+        port = int(saddr.partition(':')[2])
     return(host, port, None)
 
 def main():
     """
     Reads servers from a CSV file and queries them for various properties
     """
+    ### reset success file
+    try:
+      remove('log/sniff_successes.txt')
+    except OSError:
+      pass
+    try:
+      remove('log/sniff_failures.txt')
+    except OSError:
+      pass
+
     if len(sys.argv) >= 3:
         logdir = sys.argv[2]
     else:
@@ -66,16 +84,17 @@ def main():
         for i, row in enumerate(reader):
             #host, port, id_ = mcorgrow(row)
             host, port, id_ = iprow(row)
+            if not host: continue
             if not id_: id_ = i
             if not port: continue
 
             if logdir:
-                logfile = os.path.join(logdir, "%05d.log" % id_)
+                logfile = path.join(logdir, "%05d.log" % id_)
             else:
                 logfile = None
 
-            servers[(host,port,id_)] = info.ServerInfo((host, port), id_, logfile=logfile)
-
+            #servers[(host,port,id_)] = info.ServerInfo((host, port), id_, logfile=logfile)
+            servers[(host,port,id_)] = (host,port,id_)
     # For testing you might want to use a smaller number of servers
     # servers = servers[:200]
 
@@ -85,13 +104,14 @@ def main():
     # a configuration file manually. Just copy over the launcher_profiles.json
     # from your local minecraft installation and mc4p will be able to log in
     # with your game accounts.
-    if False:
+    if True:
         authenticator = authentication.AuthenticatorPool(
-            config_path="launcher_profiles.json"
+            config_path="/home/sethfrey/.minecraft/launcher_profiles.json"
         )
 
-    for i in range(50):
-        for server in info.server_info_map(servers.values(), pool_size=19,
+    ### number of iterations through the whole list
+    for i in range(10):
+        for server in info.server_info_map(servers.values(), pool_size=2,
                                           authenticator=authenticator):
             data = dict((key, getattr(server, key)) for key in (
                 "host",
@@ -106,19 +126,32 @@ def main():
                 "description",
                 "whitelist",
                 "plugins",
+                "plugins_fml",
                 "software",
                 "welcome",
                 "help_p1",
                 "brand",
+                "gamemode",
+                "hardcore",
+                "difficulty",
+                "level_type",
+                "signs",
                 "state",
                 "error"
             ))
-            print(json.dumps(data))
+            if data['online']:
+                print(json.dumps(data))
 
             ### remove servers that I heard from and keep trying on the others
-            if data['whitelist'] != None:
+            if data['whitelist'] != None or data['online']:
+              with open('log/sniff_successes.txt', 'a') as successlog:
+                successlog.write("%s:%d\n"%(data['host'],data['port']))
               del servers[(data['host'], data['port'], data['id'])]
-        print("pass", i, ": ", len(servers.keys))
+            else:
+              with open('log/sniff_failures.txt', 'a') as failurelog:
+                failurelog.write("%s:%d\n"%(data['host'],data['port']))
+        print(datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S'), " PASS", i, ": ", len(servers.keys()), "remaining")
+        sleep(60)
 
 
 if __name__ == "__main__":

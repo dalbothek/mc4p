@@ -34,7 +34,10 @@ _AUTHENTICATOR = None
 def get_server_info(server, authenticator=None, raise_errors=False,
                     logfile=None):
     if not isinstance(server, ServerInfo):
-        server = ServerInfo(server, logfile=logfile)
+        if len(server) == 3:
+            server = ServerInfo(server[0:2], id_=server[2], logfile=logfile)
+        else:
+            server = ServerInfo(server, logfile=logfile)
 
     try:
         _get_server_info(server, authenticator=authenticator)
