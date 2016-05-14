@@ -26,6 +26,9 @@ from datetime import datetime
 from mc4p.tools import info
 from mc4p import authentication
 
+logger = logging.getLogger("info")
+logger.setLevel(logging.INFO)
+
 def mcorgrow(row):
     host = row[4]
     port = None
@@ -63,22 +66,23 @@ def main():
     """
     Reads servers from a CSV file and queries them for various properties
     """
-    ### reset success file
-    try:
-      remove('log/sniff_successes.txt')
-    except OSError:
-      pass
-    try:
-      remove('log/sniff_failures.txt')
-    except OSError:
-      pass
 
     if len(sys.argv) >= 3:
         logdir = sys.argv[2]
     else:
-        logdir = None
+        logdir = 'log'
+
+    ### reset success file
+    if False: ## I should delete sniff_failures when the script has made a full full pass and I want to run it all over again (on servers I havent' hit yet)
+        try:
+            remove(path.join(logdir , 'sniff_failures.txt'))
+        except OSError:
+            pass
 
     servers = {}
+    skip_list =       open(path.join(logdir , 'sniff_failures.txt'), 'r').readlines()
+    skip_list.extend( open(path.join(logdir, 'sniff_successes.txt'), 'r').readlines() )
+    skip_list = [ ip.strip() for ip in skip_list ]
     with open(sys.argv[1]) as f:
         reader = csv.reader(f, escapechar=b"\\", doublequote=False)
         for i, row in enumerate(reader):
@@ -87,11 +91,13 @@ def main():
             if not host: continue
             if not id_: id_ = i
             if not port: continue
+            if host+':'+str(port) in skip_list: continue
 
-            if logdir:
-                logfile = path.join(logdir, "%05d.log" % id_)
-            else:
-                logfile = None
+            ### if I want to maintain this, I'm going to have to do something tomanage the fact of 1000000s of log files, some of them huge
+            #if logdir:
+                #logfile = path.join(logdir, "%05d.log" % id_)
+            #else:
+                #logfile = None
 
             #servers[(host,port,id_)] = info.ServerInfo((host, port), id_, logfile=logfile)
             servers[(host,port,id_)] = (host,port,id_)
@@ -111,8 +117,9 @@ def main():
 
     ### number of iterations through the whole list
     for i in range(10):
-        for server in info.server_info_map(servers.values(), pool_size=2,
+        for server in info.server_info_map(servers.values(), pool_size=16,
                                           authenticator=authenticator):
+            logger.info(server.host+':'+str(server.port))
             data = dict((key, getattr(server, key)) for key in (
                 "host",
                 "port",
@@ -144,13 +151,13 @@ def main():
 
             ### remove servers that I heard from and keep trying on the others
             if data['whitelist'] != None or data['online']:
-              with open('log/sniff_successes.txt', 'a') as successlog:
+              with open(path.join(logdir, 'sniff_successes.txt'), 'a') as successlog:
                 successlog.write("%s:%d\n"%(data['host'],data['port']))
               del servers[(data['host'], data['port'], data['id'])]
             else:
-              with open('log/sniff_failures.txt', 'a') as failurelog:
+              with open(path.join(logdir, 'sniff_failures.txt'), 'a') as failurelog:
                 failurelog.write("%s:%d\n"%(data['host'],data['port']))
-        print(datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S'), " PASS", i, ": ", len(servers.keys()), "remaining")
+        logger.info(datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S'), " PASS", i, ": ", len(servers.keys()), "remaining")
         sleep(60)
 
 
