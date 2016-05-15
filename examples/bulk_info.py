@@ -86,7 +86,7 @@ def main():
             "gamemode",
             "hardcore",
             "difficulty",
-            "level_type"
+            "level_type",
             "signs",
             "state",
             "error"
