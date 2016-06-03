@@ -67,6 +67,9 @@ def main():
     Reads servers from a CSV file and queries them for various properties
     """
 
+    logger.info("START SCRIPT")
+    start_time = time()
+
     if len(sys.argv) >= 3:
         logdir = sys.argv[2]
     else:
@@ -83,6 +86,7 @@ def main():
     skip_list =       open(path.join(logdir , 'sniff_failures.txt'), 'r').readlines()
     skip_list.extend( open(path.join(logdir, 'sniff_successes.txt'), 'r').readlines() )
     skip_list = [ ip.strip() for ip in skip_list ]
+    logger.info("AT FILTER " + str(time() - start_time))
     with open(sys.argv[1]) as f:
         reader = csv.reader(f, escapechar=b"\\", doublequote=False)
         for i, row in enumerate(reader):
@@ -157,7 +161,7 @@ def main():
             else:
               with open(path.join(logdir, 'sniff_failures.txt'), 'a') as failurelog:
                 failurelog.write("%s:%d\n"%(data['host'],data['port']))
-        logger.info(datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S'), " PASS", i, ": ", len(servers.keys()), "remaining")
+        logger.info(datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S'), " PASS", i, ": ", len(servers.keys()), "remaining", "ELAPSED:",str(time() - start_time))
         sleep(60)
 
 
