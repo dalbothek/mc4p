@@ -45,7 +45,7 @@ def get_server_info(server, authenticator=None, raise_errors=False,
         server.error = str(e)
         if raise_errors:
             raise
-        logger.error("Could not connect to %s: %s" % (repr(server), str(e)))
+        logger.error("Could not connect to %s: %s" % (repr(server).encode('punycode'), str(e).encode('punycode')))
 
     return server
 
