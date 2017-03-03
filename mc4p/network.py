@@ -301,7 +301,7 @@ class Server(gevent.server.StreamServer):
     def handle(self, sock, addr):
         logger.info("Incoming connection from %s:%d" % addr)
         handler = self.handler(sock, addr, self)
-        handler.start()
+        handler.run()
 
     def run(self):
         try:
